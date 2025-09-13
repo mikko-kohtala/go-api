@@ -1,7 +1,7 @@
 Init Codex — Minimal Go API Template
 ===================================
 
-A clean Go 1.22 HTTP API starter using:
+A clean Go 1.23 HTTP API starter using:
 
 - chi router and modern middleware
 - slog JSON logging
@@ -12,7 +12,7 @@ A clean Go 1.22 HTTP API starter using:
 Quick start
 -----------
 
-- Install Go 1.22+
+- Install Go 1.23+
 - Generate docs, then run:
 
 ```
