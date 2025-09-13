@@ -35,6 +35,6 @@ func respondJSON(r *http.Request, w http.ResponseWriter, code int, v any) {
         if l := logging.FromContext(r.Context()); l != nil {
             l.Error("failed to encode JSON response", slog.String("error", err.Error()))
         }
-        http.Error(w, "internal server error", http.StatusInternalServerError)
+        // Do not attempt to write another response after headers are sent.
     }
 }

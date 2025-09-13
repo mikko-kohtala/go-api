@@ -15,6 +15,7 @@ import (
 
     "github.com/mikko-kohtala/go-api/internal/config"
     "github.com/mikko-kohtala/go-api/internal/handlers"
+    "github.com/mikko-kohtala/go-api/internal/logging"
 )
 
 // NewRouter assembles the chi router with middleware and routes.
@@ -23,6 +24,7 @@ func NewRouter(cfg *config.Config, logger *slog.Logger) http.Handler {
 
     // Core middleware (place timeout early to bound all work)
     r.Use(middleware.Timeout(cfg.RequestTimeout))
+    r.Use(BodyLimit(cfg.BodyLimitBytes))
     r.Use(RequestID)
     r.Use(middleware.RealIP)
     r.Use(LoggingMiddleware(logger))
@@ -48,7 +50,8 @@ func NewRouter(cfg *config.Config, logger *slog.Logger) http.Handler {
         }
     }
 
-    // Optional rate limiting (per-IP)
+    // Optional rate limiting (per-IP). Apply to API routes but not health endpoints.
+    var apiRate func(http.Handler) http.Handler = func(h http.Handler) http.Handler { return h }
     if cfg.RateLimitEnabled {
         period, err := time.ParseDuration(cfg.RateLimitPeriod)
         if err != nil || period <= 0 {
@@ -56,7 +59,7 @@ func NewRouter(cfg *config.Config, logger *slog.Logger) http.Handler {
                 slog.String("period", cfg.RateLimitPeriod),
                 slog.Any("error", err))
         } else {
-            r.Use(httprate.LimitByIP(cfg.RateLimit, period))
+            apiRate = httprate.LimitByIP(cfg.RateLimit, period)
         }
     }
 
@@ -68,6 +71,7 @@ func NewRouter(cfg *config.Config, logger *slog.Logger) http.Handler {
 
     // API v1
     r.Route("/api/v1", func(r chi.Router) {
+        r.Use(apiRate)
         r.Get("/ping", handlers.Ping)
         r.Post("/echo", handlers.Echo)
     })
@@ -89,8 +93,13 @@ func NewRouter(cfg *config.Config, logger *slog.Logger) http.Handler {
     r.Get("/", func(w http.ResponseWriter, r *http.Request) {
         w.Header().Set("Content-Type", "application/json")
         w.WriteHeader(http.StatusOK)
-        _, _ = w.Write([]byte(fmt.Sprintf(`{"name":"%s","version":"%s","docs":"/swagger/index.html"}`,
-            "init-codex", "1.0.0")))
+        if _, err := w.Write([]byte(fmt.Sprintf(`{"name":"%s","version":"%s","docs":"/swagger/index.html"}`,
+            "go-api", "1.0.0"))); err != nil {
+            // Log write error via request-scoped logger if present
+            if l := logging.FromContext(r.Context()); l != nil {
+                l.Error("failed to write root response", slog.String("error", err.Error()))
+            }
+        }
     })
 
     return r

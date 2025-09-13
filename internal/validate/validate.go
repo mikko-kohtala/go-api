@@ -58,10 +58,24 @@ func humanMessage(fe validator.FieldError) string {
         return fmt.Sprintf("must be at least %s", fe.Param())
     case "max":
         return fmt.Sprintf("must be at most %s", fe.Param())
+    case "len":
+        return fmt.Sprintf("must be length %s", fe.Param())
+    case "gte":
+        return fmt.Sprintf("must be greater than or equal to %s", fe.Param())
+    case "lte":
+        return fmt.Sprintf("must be less than or equal to %s", fe.Param())
     case "oneof":
         return fmt.Sprintf("must be one of %s", fe.Param())
     case "email":
         return "must be a valid email"
+    case "url":
+        return "must be a valid URL"
+    case "uuid", "uuid4":
+        return "must be a valid UUID"
+    case "alpha":
+        return "must contain only letters"
+    case "alphanum":
+        return "must contain only letters and numbers"
     default:
         return fmt.Sprintf("is invalid (%s)", fe.Tag())
     }

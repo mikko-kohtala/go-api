@@ -12,6 +12,7 @@ type Config struct {
     Env              string        `env:"APP_ENV" envDefault:"development"`
     Port             int           `env:"PORT" envDefault:"8080"`
     RequestTimeout   time.Duration `env:"REQUEST_TIMEOUT" envDefault:"15s"`
+    BodyLimitBytes   int64         `env:"BODY_LIMIT_BYTES" envDefault:"10485760"` // 10 MiB
 
     // CORS
     CORSAllowedOrigins []string `env:"CORS_ALLOWED_ORIGINS" envSeparator:"," envDefault:"*"`
@@ -35,4 +36,3 @@ func Load() (*Config, error) {
     }
     return &cfg, nil
 }
-
