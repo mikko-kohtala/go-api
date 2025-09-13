@@ -1,0 +1,13 @@
+# Binaries
+api
+bin/
+
+# Swagger generated
+internal/docs/swagger.yaml
+internal/docs/swagger.json
+
+# OS/Editor
+.DS_Store
+*.swp
+*.log
+
