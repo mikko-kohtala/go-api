@@ -14,6 +14,9 @@ type Config struct {
 	AllowedOrigins    []string
 	RateLimitRequests int
 	RateLimitDuration time.Duration
+	ReadTimeout       time.Duration
+	WriteTimeout      time.Duration
+	IdleTimeout       time.Duration
 	ShutdownTimeout   time.Duration
 }
 
@@ -25,6 +28,9 @@ func Load() *Config {
 		AllowedOrigins:    getEnvAsSlice("ALLOWED_ORIGINS", []string{"*"}),
 		RateLimitRequests: getEnvAsInt("RATE_LIMIT_REQUESTS", 100),
 		RateLimitDuration: getEnvAsDuration("RATE_LIMIT_DURATION", time.Minute),
+		ReadTimeout:       getEnvAsDuration("READ_TIMEOUT", 15*time.Second),
+		WriteTimeout:      getEnvAsDuration("WRITE_TIMEOUT", 15*time.Second),
+		IdleTimeout:       getEnvAsDuration("IDLE_TIMEOUT", 60*time.Second),
 		ShutdownTimeout:   getEnvAsDuration("SHUTDOWN_TIMEOUT", 30*time.Second),
 	}
 }

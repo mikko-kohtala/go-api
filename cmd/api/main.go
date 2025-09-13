@@ -26,9 +26,9 @@ func main() {
 	srv := &http.Server{
 		Addr:         ":" + cfg.Port,
 		Handler:      router,
-		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 15 * time.Second,
-		IdleTimeout:  60 * time.Second,
+		ReadTimeout:  cfg.ReadTimeout,
+		WriteTimeout: cfg.WriteTimeout,
+		IdleTimeout:  cfg.IdleTimeout,
 	}
 
 	go func() {
@@ -45,7 +45,7 @@ func main() {
 
 	slog.Info("shutting down server...")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
 	defer cancel()
 
 	if err := srv.Shutdown(ctx); err != nil {
