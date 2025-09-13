@@ -5,12 +5,24 @@ import (
     "errors"
     "fmt"
     "net/http"
+    "reflect"
     "strings"
 
     "github.com/go-playground/validator/v10"
 )
 
 var v = validator.New(validator.WithRequiredStructEnabled())
+
+func init() {
+    // Use JSON tag names in validation errors
+    v.RegisterTagNameFunc(func(fld reflect.StructField) string {
+        name := strings.SplitN(fld.Tag.Get("json"), ",", 2)[0]
+        if name == "-" || name == "" {
+            return fld.Name
+        }
+        return name
+    })
+}
 
 // Errors represents field validation errors keyed by JSON field name.
 type Errors map[string]string
@@ -29,19 +41,7 @@ func BindAndValidate(r *http.Request, dst any) (Errors, error) {
         if verrs, ok := err.(validator.ValidationErrors); ok {
             out := Errors{}
             for _, fe := range verrs {
-                name := fe.Field()
-                // Use json tag if present
-                if tag := fe.StructField(); tag != "" {
-                    // If struct field has json tag, validator exposes Field(); here we try to
-                    // fallback to lowercased field name when json tag unknown.
-                    // For simple cases this is fine; advanced mapping can be added later.
-                }
-                // Best-effort to map to json tag: reflect isn't used here to keep simple.
-                // Convert to lower-camel case
-                if name != "" {
-                    name = strings.ToLower(name[:1]) + name[1:]
-                }
-                out[name] = humanMessage(fe)
+                out[fe.Field()] = humanMessage(fe)
             }
             return out, nil
         }
@@ -66,4 +66,3 @@ func humanMessage(fe validator.FieldError) string {
         return fmt.Sprintf("is invalid (%s)", fe.Tag())
     }
 }
-

@@ -6,6 +6,7 @@ import (
     "encoding/hex"
     "net/http"
     "strings"
+    "regexp"
 )
 
 type ctxKey string
@@ -23,12 +24,14 @@ func RequestID(next http.Handler) http.Handler {
     })
 }
 
+var requestIDPattern = regexp.MustCompile(`^[A-Za-z0-9_.:-]{1,128}$`)
+
 func pickRequestID(r *http.Request) string {
     rid := strings.TrimSpace(r.Header.Get("X-Request-ID"))
     if rid == "" {
         rid = strings.TrimSpace(r.Header.Get("X-Correlation-ID"))
     }
-    if rid != "" {
+    if rid != "" && requestIDPattern.MatchString(rid) {
         return rid
     }
     // fallback: random 16 bytes hex
@@ -48,4 +51,3 @@ func GetRequestID(ctx context.Context) string {
     }
     return ""
 }
-

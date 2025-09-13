@@ -11,22 +11,22 @@ import (
     "github.com/go-chi/cors"
     "github.com/go-chi/httprate"
     httpSwagger "github.com/swaggo/http-swagger/v2"
-    docs "init-codex/internal/docs"
+    docs "github.com/mikko-kohtala/go-api/internal/docs"
 
-    "init-codex/internal/config"
-    "init-codex/internal/handlers"
+    "github.com/mikko-kohtala/go-api/internal/config"
+    "github.com/mikko-kohtala/go-api/internal/handlers"
 )
 
 // NewRouter assembles the chi router with middleware and routes.
 func NewRouter(cfg *config.Config, logger *slog.Logger) http.Handler {
     r := chi.NewRouter()
 
-    // Core middleware
+    // Core middleware (place timeout early to bound all work)
+    r.Use(middleware.Timeout(cfg.RequestTimeout))
     r.Use(RequestID)
     r.Use(middleware.RealIP)
     r.Use(LoggingMiddleware(logger))
     r.Use(middleware.Recoverer)
-    r.Use(middleware.Timeout(cfg.RequestTimeout))
     r.Use(middleware.Compress(5))
 
     // CORS
@@ -38,11 +38,24 @@ func NewRouter(cfg *config.Config, logger *slog.Logger) http.Handler {
         AllowCredentials: false,
         MaxAge:           300,
     }))
+    // Warn if permissive CORS in production
+    if cfg.Env == "production" || cfg.Env == "prod" {
+        for _, o := range cfg.CORSAllowedOrigins {
+            if o == "*" {
+                logger.Warn("CORS allows all origins in production; consider restricting AllowedOrigins")
+                break
+            }
+        }
+    }
 
     // Optional rate limiting (per-IP)
     if cfg.RateLimitEnabled {
         period, err := time.ParseDuration(cfg.RateLimitPeriod)
-        if err == nil && period > 0 {
+        if err != nil || period <= 0 {
+            logger.Error("invalid rate limit period; disabling rate limit",
+                slog.String("period", cfg.RateLimitPeriod),
+                slog.Any("error", err))
+        } else {
             r.Use(httprate.LimitByIP(cfg.RateLimit, period))
         }
     }

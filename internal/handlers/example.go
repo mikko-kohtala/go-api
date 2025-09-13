@@ -2,9 +2,8 @@ package handlers
 
 import (
     "net/http"
+    "github.com/mikko-kohtala/go-api/internal/validate"
 )
-
-import "init-codex/internal/validate"
 
 type EchoRequest struct {
     Message string `json:"message" validate:"required,min=1"`
@@ -20,8 +19,8 @@ type EchoResponse struct {
 // @Tags         example
 // @Success      200 {object} map[string]string
 // @Router       /api/v1/ping [get]
-func Ping(w http.ResponseWriter, _ *http.Request) {
-    respondJSON(w, http.StatusOK, map[string]string{"pong": "ok"})
+func Ping(w http.ResponseWriter, r *http.Request) {
+    respondJSON(r, w, http.StatusOK, map[string]string{"pong": "ok"})
 }
 
 // Echo godoc
@@ -38,12 +37,12 @@ func Echo(w http.ResponseWriter, r *http.Request) {
     var req EchoRequest
     errs, err := validate.BindAndValidate(r, &req)
     if err != nil {
-        respondJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid JSON", "detail": err.Error()})
+        respondJSON(r, w, http.StatusBadRequest, map[string]any{"error": "invalid JSON", "detail": err.Error()})
         return
     }
     if errs != nil {
-        respondJSON(w, http.StatusBadRequest, map[string]any{"error": "validation failed", "fields": errs})
+        respondJSON(r, w, http.StatusBadRequest, map[string]any{"error": "validation failed", "fields": errs})
         return
     }
-    respondJSON(w, http.StatusOK, EchoResponse{Message: req.Message})
+    respondJSON(r, w, http.StatusOK, EchoResponse{Message: req.Message})
 }

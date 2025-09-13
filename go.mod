@@ -1,4 +1,4 @@
-module init-codex
+module github.com/mikko-kohtala/go-api
 
 go 1.23.0
 

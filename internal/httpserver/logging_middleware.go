@@ -6,7 +6,7 @@ import (
     "time"
 
     "github.com/go-chi/chi/v5/middleware"
-    "init-codex/internal/logging"
+    "github.com/mikko-kohtala/go-api/internal/logging"
 )
 
 // LoggingMiddleware logs basic request/response details using slog JSON.
