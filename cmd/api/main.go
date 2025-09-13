@@ -9,10 +9,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/user/go-api-template/internal/config"
-	"github.com/user/go-api-template/internal/handlers"
-	"github.com/user/go-api-template/internal/middleware"
-	"github.com/user/go-api-template/pkg/logger"
+	"github.com/mikko-kohtala/go-api/internal/config"
+	"github.com/mikko-kohtala/go-api/internal/handlers"
+	"github.com/mikko-kohtala/go-api/internal/middleware"
+	"github.com/mikko-kohtala/go-api/pkg/logger"
 )
 
 func main() {
@@ -73,6 +73,8 @@ func setupRouter(cfg *config.Config, log *slog.Logger) http.Handler {
 		middleware.RateLimit(cfg.RateLimitRequests, cfg.RateLimitDuration),
 		middleware.CORS(cfg.AllowedOrigins),
 		middleware.RequestID,
+		middleware.ContentTypeJSON,
+		middleware.BodySizeLimit(1048576), // 1MB limit
 		middleware.Logger(log),
 		middleware.Recover(log),
 	)

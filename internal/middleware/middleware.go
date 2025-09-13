@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/user/go-api-template/pkg/logger"
+	"github.com/mikko-kohtala/go-api/pkg/logger"
 	"golang.org/x/time/rate"
 )
 
@@ -20,6 +20,30 @@ func Chain(h http.Handler, middlewares ...Middleware) http.Handler {
 		h = middlewares[i](h)
 	}
 	return h
+}
+
+func BodySizeLimit(maxBytes int64) Middleware {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			r.Body = http.MaxBytesReader(w, r.Body, maxBytes)
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+func ContentTypeJSON(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost || r.Method == http.MethodPut || r.Method == http.MethodPatch {
+			contentType := r.Header.Get("Content-Type")
+			if contentType != "application/json" && !strings.HasPrefix(contentType, "application/json;") {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusUnsupportedMediaType)
+				w.Write([]byte(`{"error":"Content-Type must be application/json"}`))
+				return
+			}
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 func RequestID(next http.Handler) http.Handler {

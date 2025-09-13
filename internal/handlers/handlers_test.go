@@ -9,7 +9,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/user/go-api-template/internal/models"
+	"github.com/mikko-kohtala/go-api/internal/models"
 )
 
 func TestHealthEndpoint(t *testing.T) {

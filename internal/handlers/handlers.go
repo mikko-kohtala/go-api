@@ -8,10 +8,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/user/go-api-template/internal/models"
-	"github.com/user/go-api-template/pkg/logger"
-	"github.com/user/go-api-template/pkg/response"
-	"github.com/user/go-api-template/pkg/validation"
+	"github.com/mikko-kohtala/go-api/internal/models"
+	"github.com/mikko-kohtala/go-api/pkg/logger"
+	"github.com/mikko-kohtala/go-api/pkg/response"
+	"github.com/mikko-kohtala/go-api/pkg/validation"
 )
 
 type Handler struct {
