@@ -44,6 +44,10 @@ func main() {
 	logger := logger.New(cfg.LogLevel)
 	defer logger.Sync()
 
+	// Initialize validators
+	handlers.InitValidator(logger)
+	handlers.InitExampleValidator(logger)
+
 	// Set Gin mode
 	if cfg.Environment == "production" {
 		gin.SetMode(gin.ReleaseMode)
@@ -53,6 +57,7 @@ func main() {
 	router := gin.New()
 
 	// Add middleware
+	router.Use(middleware.TracingMiddleware(logger))
 	router.Use(middleware.Logger(logger))
 	router.Use(middleware.Recovery(logger))
 	router.Use(middleware.RateLimiter(cfg.RateLimit.Requests, cfg.RateLimit.Window))

@@ -4,9 +4,12 @@ import (
 	"net/http"
 	"time"
 
+	"go-api-template/internal/middleware"
 	"go-api-template/internal/models"
+	"go-api-template/internal/validation"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 // In-memory storage for examples
@@ -16,6 +19,14 @@ var examples = []models.Example{
 }
 
 var nextExampleID = 3
+
+// exampleValidator instance (in production, this should be injected)
+var exampleValidator *validation.CustomValidator
+
+// InitExampleValidator initializes the example validator (should be called during app startup)
+func InitExampleValidator(logger *zap.Logger) {
+	exampleValidator = validation.NewValidator(logger)
+}
 
 // GetExamples godoc
 // @Summary Get all examples
@@ -44,8 +55,10 @@ func GetExamples(c *gin.Context) {
 // @Router /api/v1/examples [post]
 func CreateExample(c *gin.Context) {
 	var req models.CreateExampleRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	
+	// Validate request
+	if validationErrors := exampleValidator.ValidateAndBind(c, &req); validationErrors != nil {
+		exampleValidator.HandleValidationError(c, validationErrors)
 		return
 	}
 
@@ -59,5 +72,8 @@ func CreateExample(c *gin.Context) {
 	examples = append(examples, example)
 	nextExampleID++
 
-	c.JSON(http.StatusCreated, gin.H{"data": example})
+	c.JSON(http.StatusCreated, gin.H{
+		"data": example,
+		"request_id": middleware.GetRequestID(c),
+	})
 }

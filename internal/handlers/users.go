@@ -5,9 +5,12 @@ import (
 	"strconv"
 	"time"
 
+	"go-api-template/internal/middleware"
 	"go-api-template/internal/models"
+	"go-api-template/internal/validation"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 // In-memory storage for demo purposes
@@ -17,6 +20,14 @@ var users = []models.User{
 }
 
 var nextUserID = 3
+
+// validator instance (in production, this should be injected)
+var validator *validation.CustomValidator
+
+// InitValidator initializes the validator (should be called during app startup)
+func InitValidator(logger *zap.Logger) {
+	validator = validation.NewValidator(logger)
+}
 
 // GetUsers godoc
 // @Summary Get all users
@@ -73,15 +84,20 @@ func GetUser(c *gin.Context) {
 // @Router /api/v1/users [post]
 func CreateUser(c *gin.Context) {
 	var req models.CreateUserRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	
+	// Validate request
+	if validationErrors := validator.ValidateAndBind(c, &req); validationErrors != nil {
+		validator.HandleValidationError(c, validationErrors)
 		return
 	}
 
 	// Check if email already exists
 	for _, user := range users {
 		if user.Email == req.Email {
-			c.JSON(http.StatusConflict, gin.H{"error": "Email already exists"})
+			c.JSON(http.StatusConflict, gin.H{
+				"error": "Email already exists",
+				"request_id": middleware.GetRequestID(c),
+			})
 			return
 		}
 	}
@@ -97,7 +113,10 @@ func CreateUser(c *gin.Context) {
 	users = append(users, user)
 	nextUserID++
 
-	c.JSON(http.StatusCreated, gin.H{"data": user})
+	c.JSON(http.StatusCreated, gin.H{
+		"data": user,
+		"request_id": middleware.GetRequestID(c),
+	})
 }
 
 // UpdateUser godoc
@@ -116,13 +135,18 @@ func UpdateUser(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Invalid user ID",
+			"request_id": middleware.GetRequestID(c),
+		})
 		return
 	}
 
 	var req models.UpdateUserRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	
+	// Validate request
+	if validationErrors := validator.ValidateAndBind(c, &req); validationErrors != nil {
+		validator.HandleValidationError(c, validationErrors)
 		return
 	}
 

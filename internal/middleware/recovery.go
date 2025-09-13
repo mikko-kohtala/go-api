@@ -17,6 +17,7 @@ func Recovery(logger *zap.Logger) gin.HandlerFunc {
 	return gin.CustomRecovery(func(c *gin.Context, recovered interface{}) {
 		if err, ok := recovered.(string); ok {
 			logger.Error("Panic recovered",
+				zap.String("request_id", GetRequestID(c)),
 				zap.String("error", err),
 				zap.String("path", c.Request.URL.Path),
 				zap.String("method", c.Request.Method),
@@ -40,6 +41,7 @@ func Recovery(logger *zap.Logger) gin.HandlerFunc {
 
 		if brokenPipe {
 			logger.Error("Broken pipe",
+				zap.String("request_id", GetRequestID(c)),
 				zap.String("path", c.Request.URL.Path),
 				zap.String("method", c.Request.Method),
 				zap.String("client_ip", c.ClientIP()),
@@ -52,6 +54,7 @@ func Recovery(logger *zap.Logger) gin.HandlerFunc {
 
 		httpRequest, _ := httputil.DumpRequest(c.Request, false)
 		logger.Error("Panic recovered",
+			zap.String("request_id", GetRequestID(c)),
 			zap.String("request", string(httpRequest)),
 			zap.String("stack", string(debug.Stack())),
 		)

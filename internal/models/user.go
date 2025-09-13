@@ -13,14 +13,14 @@ type User struct {
 
 // CreateUserRequest represents the request payload for creating a user
 type CreateUserRequest struct {
-	Name  string `json:"name" binding:"required" example:"John Doe"`
-	Email string `json:"email" binding:"required,email" example:"john@example.com"`
+	Name  string `json:"name" binding:"required,min=2,max=100,notempty" example:"John Doe"`
+	Email string `json:"email" binding:"required,email_format,max=255" example:"john@example.com"`
 }
 
 // UpdateUserRequest represents the request payload for updating a user
 type UpdateUserRequest struct {
-	Name  string `json:"name" example:"John Doe"`
-	Email string `json:"email" binding:"omitempty,email" example:"john@example.com"`
+	Name  string `json:"name" binding:"omitempty,min=2,max=100,notempty" example:"John Doe"`
+	Email string `json:"email" binding:"omitempty,email_format,max=255" example:"john@example.com"`
 }
 
 // Example represents an example resource
@@ -33,6 +33,6 @@ type Example struct {
 
 // CreateExampleRequest represents the request payload for creating an example
 type CreateExampleRequest struct {
-	Title       string `json:"title" binding:"required" example:"Example Title"`
-	Description string `json:"description" example:"Example Description"`
+	Title       string `json:"title" binding:"required,min=3,max=200,notempty" example:"Example Title"`
+	Description string `json:"description" binding:"max=1000" example:"Example Description"`
 }
