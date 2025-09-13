@@ -8,6 +8,7 @@ A clean Go 1.23 HTTP API starter using:
 - Swagger/OpenAPI docs via swag
 - Optional per‑IP rate limiting
 - Graceful shutdown and sane defaults
+ - JSON request validation (go-playground/validator) with unknown-field rejection
 
 Quick start
 -----------
@@ -59,3 +60,5 @@ Notes
 - Logs are structured JSON using Go’s `slog`.
 - Rate limiting uses `github.com/go-chi/httprate` and is configurable.
 - The Swagger docs are generated from comments (`swag init`).
+- Request ID propagation: the server trusts `X-Request-ID` (or `X-Correlation-ID`) from the client, echoes it back on responses, and includes it in every log line.
+- Validation: JSON bodies are decoded with `DisallowUnknownFields` and validated via struct tags (e.g. `validate:"required,min=1"`).

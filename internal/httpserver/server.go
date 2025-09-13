@@ -22,7 +22,7 @@ func NewRouter(cfg *config.Config, logger *slog.Logger) http.Handler {
     r := chi.NewRouter()
 
     // Core middleware
-    r.Use(middleware.RequestID)
+    r.Use(RequestID)
     r.Use(middleware.RealIP)
     r.Use(LoggingMiddleware(logger))
     r.Use(middleware.Recoverer)

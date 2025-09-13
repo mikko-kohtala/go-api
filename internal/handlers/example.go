@@ -1,12 +1,13 @@
 package handlers
 
 import (
-    "encoding/json"
     "net/http"
 )
 
+import "init-codex/internal/validate"
+
 type EchoRequest struct {
-    Message string `json:"message"`
+    Message string `json:"message" validate:"required,min=1"`
 }
 
 type EchoResponse struct {
@@ -35,14 +36,14 @@ func Ping(w http.ResponseWriter, _ *http.Request) {
 // @Router       /api/v1/echo [post]
 func Echo(w http.ResponseWriter, r *http.Request) {
     var req EchoRequest
-    if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-        respondJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
+    errs, err := validate.BindAndValidate(r, &req)
+    if err != nil {
+        respondJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid JSON", "detail": err.Error()})
         return
     }
-    if req.Message == "" {
-        respondJSON(w, http.StatusBadRequest, map[string]string{"error": "message is required"})
+    if errs != nil {
+        respondJSON(w, http.StatusBadRequest, map[string]any{"error": "validation failed", "fields": errs})
         return
     }
     respondJSON(w, http.StatusOK, EchoResponse{Message: req.Message})
 }
-

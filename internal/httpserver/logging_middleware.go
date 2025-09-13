@@ -6,6 +6,7 @@ import (
     "time"
 
     "github.com/go-chi/chi/v5/middleware"
+    "init-codex/internal/logging"
 )
 
 // LoggingMiddleware logs basic request/response details using slog JSON.
@@ -14,11 +15,18 @@ func LoggingMiddleware(logger *slog.Logger) func(next http.Handler) http.Handler
         fn := func(w http.ResponseWriter, r *http.Request) {
             start := time.Now()
             ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
-            next.ServeHTTP(ww, r)
+            // Create request-scoped logger with request_id if available
+            rid := GetRequestID(r.Context())
+            reqLogger := logger
+            if rid != "" {
+                reqLogger = logger.With(slog.String("request_id", rid))
+            }
+            // store logger in context for handlers to use if desired
+            ctx := logging.IntoContext(r.Context(), reqLogger)
+            next.ServeHTTP(ww, r.WithContext(ctx))
             duration := time.Since(start)
 
-            logger.Info("request",
-                slog.String("request_id", middleware.GetReqID(r.Context())),
+            reqLogger.Info("request",
                 slog.String("remote_ip", r.RemoteAddr),
                 slog.String("method", r.Method),
                 slog.String("path", r.URL.Path),
@@ -31,4 +39,3 @@ func LoggingMiddleware(logger *slog.Logger) func(next http.Handler) http.Handler
         return http.HandlerFunc(fn)
     }
 }
-
