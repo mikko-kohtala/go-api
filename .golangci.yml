@@ -13,19 +13,14 @@ linters:
     - staticcheck
     - unused
     - gosimple
-    - structcheck
-    - varcheck
     - ineffassign
-    - deadcode
     - typecheck
     - gosec
-    - megacheck
     - dupl
     - misspell
     - lll
     - nakedret
     - prealloc
-    - scopelint
     - gocritic
     - gochecknoinits
     - gocyclo
@@ -33,6 +28,8 @@ linters:
     - godox
     - bodyclose
     - stylecheck
+    - revive
+    - exportloopref
 
 linters-settings:
   lll:

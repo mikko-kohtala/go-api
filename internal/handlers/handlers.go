@@ -15,16 +15,18 @@ import (
 )
 
 type Handler struct {
-	logger *slog.Logger
-	users  map[string]*models.User
-	mu     sync.RWMutex
+	logger     *slog.Logger
+	users      map[string]*models.User
+	emailIndex map[string]string // email -> userID
+	mu         sync.RWMutex
 }
 
 func New(log *slog.Logger) *Handler {
 	return &Handler{
-		logger: log,
-		users:  make(map[string]*models.User),
-		mu:     sync.RWMutex{},
+		logger:     log,
+		users:      make(map[string]*models.User),
+		emailIndex: make(map[string]string),
+		mu:         sync.RWMutex{},
 	}
 }
 
@@ -108,13 +110,11 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.mu.RLock()
-	for _, existingUser := range h.users {
-		if existingUser.Email == req.Email {
-			h.mu.RUnlock()
-			log.Info("email already exists", "email", req.Email)
-			response.Error(w, http.StatusConflict, "email already exists")
-			return
-		}
+	if _, exists := h.emailIndex[req.Email]; exists {
+		h.mu.RUnlock()
+		log.Info("email already exists", "email", req.Email)
+		response.Error(w, http.StatusConflict, "email already exists")
+		return
 	}
 	h.mu.RUnlock()
 
@@ -128,6 +128,7 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 
 	h.mu.Lock()
 	h.users[user.ID] = user
+	h.emailIndex[user.Email] = user.ID
 	h.mu.Unlock()
 
 	log.Info("user created",
@@ -180,20 +181,20 @@ func (h *Handler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 
 	if req.Email != "" && req.Email != user.Email {
 		h.mu.RLock()
-		for _, existingUser := range h.users {
-			if existingUser.Email == req.Email && existingUser.ID != id {
-				h.mu.RUnlock()
-				log.Info("email already exists", "email", req.Email)
-				response.Error(w, http.StatusConflict, "email already exists")
-				return
-			}
+		if existingID, exists := h.emailIndex[req.Email]; exists && existingID != id {
+			h.mu.RUnlock()
+			log.Info("email already exists", "email", req.Email)
+			response.Error(w, http.StatusConflict, "email already exists")
+			return
 		}
 		h.mu.RUnlock()
 	}
 
 	h.mu.Lock()
-	if req.Email != "" {
+	if req.Email != "" && req.Email != user.Email {
+		delete(h.emailIndex, user.Email)
 		user.Email = req.Email
+		h.emailIndex[req.Email] = user.ID
 	}
 	if req.Name != "" {
 		user.Name = req.Name
@@ -226,18 +227,20 @@ func (h *Handler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.mu.Lock()
-	if _, exists := h.users[id]; !exists {
+	user, exists := h.users[id]
+	if !exists {
 		h.mu.Unlock()
 		log.Info("user not found", "user_id", id)
 		response.Error(w, http.StatusNotFound, "user not found")
 		return
 	}
 
+	delete(h.emailIndex, user.Email)
 	delete(h.users, id)
 	h.mu.Unlock()
 
 	log.Info("user deleted", "user_id", id)
 
-	response.JSON(w, http.StatusNoContent, nil)
+	w.WriteHeader(http.StatusNoContent)
 }
 

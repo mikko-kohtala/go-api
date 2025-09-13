@@ -129,20 +129,28 @@ func RateLimit(requests int, duration time.Duration) Middleware {
 	}
 
 	var (
-		mu      sync.Mutex
-		clients = make(map[string]*client)
+		mu       sync.Mutex
+		clients  = make(map[string]*client)
+		stopChan = make(chan struct{})
 	)
 
 	go func() {
+		ticker := time.NewTicker(time.Minute)
+		defer ticker.Stop()
+
 		for {
-			time.Sleep(time.Minute)
-			mu.Lock()
-			for ip, c := range clients {
-				if time.Since(c.lastSeen) > 3*time.Minute {
-					delete(clients, ip)
+			select {
+			case <-ticker.C:
+				mu.Lock()
+				for ip, c := range clients {
+					if time.Since(c.lastSeen) > 3*time.Minute {
+						delete(clients, ip)
+					}
 				}
+				mu.Unlock()
+			case <-stopChan:
+				return
 			}
-			mu.Unlock()
 		}
 	}()
 
