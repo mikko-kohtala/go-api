@@ -1,0 +1,56 @@
+run:
+  timeout: 5m
+  skip-dirs:
+    - vendor
+    - tmp
+
+linters:
+  enable:
+    - gofmt
+    - goimports
+    - govet
+    - errcheck
+    - staticcheck
+    - unused
+    - gosimple
+    - structcheck
+    - varcheck
+    - ineffassign
+    - deadcode
+    - typecheck
+    - gosec
+    - megacheck
+    - dupl
+    - misspell
+    - lll
+    - nakedret
+    - prealloc
+    - scopelint
+    - gocritic
+    - gochecknoinits
+    - gocyclo
+    - gocognit
+    - godox
+    - bodyclose
+    - stylecheck
+
+linters-settings:
+  lll:
+    line-length: 120
+  gocyclo:
+    min-complexity: 15
+  gocognit:
+    min-complexity: 20
+  govet:
+    check-shadowing: true
+  misspell:
+    locale: US
+
+issues:
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - gocyclo
+        - errcheck
+        - dupl
+        - gosec
