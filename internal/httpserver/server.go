@@ -1,119 +1,267 @@
 package httpserver
 
 import (
-    "fmt"
-    "log/slog"
-    "net/http"
-    "time"
+	"encoding/json"
+	"fmt"
+	"log/slog"
+	"net/http"
+	"time"
 
-    "github.com/go-chi/chi/v5"
-    "github.com/go-chi/chi/v5/middleware"
-    "github.com/go-chi/cors"
-    "github.com/go-chi/httprate"
-    httpSwagger "github.com/swaggo/http-swagger/v2"
-    docs "github.com/mikko-kohtala/go-api/internal/docs"
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/cors"
+	"github.com/go-chi/httprate"
+	docs "github.com/mikko-kohtala/go-api/internal/docs"
+	httpSwagger "github.com/swaggo/http-swagger/v2"
 
-    "github.com/mikko-kohtala/go-api/internal/config"
-    "github.com/mikko-kohtala/go-api/internal/handlers"
-    "github.com/mikko-kohtala/go-api/internal/logging"
+	"github.com/mikko-kohtala/go-api/internal/config"
+	"github.com/mikko-kohtala/go-api/internal/handlers"
+	pkglogger "github.com/mikko-kohtala/go-api/pkg/logger"
 )
 
 // NewRouter assembles the chi router with middleware and routes.
-func NewRouter(cfg *config.Config, logger *slog.Logger) http.Handler {
-    r := chi.NewRouter()
+func NewRouter(cfg *config.Config, appLogger *slog.Logger) http.Handler {
+	r := chi.NewRouter()
 
-    // Core middleware (place timeout early to bound all work)
-    r.Use(middleware.Timeout(cfg.RequestTimeout))
-    r.Use(BodyLimit(cfg.BodyLimitBytes))
-    r.Use(RequestID)
-    r.Use(middleware.RealIP)
-    // Compression level is configurable
-    r.Use(middleware.Compress(cfg.CompressionLevel))
-    r.Use(LoggingMiddleware(logger))
-    r.Use(middleware.Recoverer)
+	// Core middleware (place timeout early to bound all work)
+	r.Use(middleware.Timeout(cfg.RequestTimeout))
+	r.Use(BodyLimit(cfg.BodyLimitBytes))
+	r.Use(RequestID)
+	r.Use(middleware.RealIP)
+	// Compression level is configurable
+	r.Use(middleware.Compress(cfg.CompressionLevel))
+	r.Use(LoggingMiddleware(appLogger))
+	r.Use(middleware.Recoverer)
 
-    // CORS
-    r.Use(cors.Handler(cors.Options{
-        AllowedOrigins:   cfg.CORSAllowedOrigins,
-        AllowedMethods:   cfg.CORSAllowedMethods,
-        AllowedHeaders:   cfg.CORSAllowedHeaders,
-        ExposedHeaders:   []string{"Link"},
-        AllowCredentials: false,
-        MaxAge:           300,
-    }))
-    // Warn if permissive CORS in production
-    if cfg.Env == "production" || cfg.Env == "prod" {
-        for _, o := range cfg.CORSAllowedOrigins {
-            if o == "*" {
-                logger.Warn("CORS allows all origins in production; consider restricting AllowedOrigins")
-                break
-            }
-        }
-    }
+	// CORS
+	r.Use(cors.Handler(cors.Options{
+		AllowedOrigins:   cfg.CORSAllowedOrigins,
+		AllowedMethods:   cfg.CORSAllowedMethods,
+		AllowedHeaders:   cfg.CORSAllowedHeaders,
+		ExposedHeaders:   []string{"Link"},
+		AllowCredentials: false,
+		MaxAge:           300,
+	}))
+	// Warn if permissive CORS in production
+	if cfg.Env == "production" || cfg.Env == "prod" {
+		for _, o := range cfg.CORSAllowedOrigins {
+			if o == "*" {
+				appLogger.Warn("CORS allows all origins in production; consider restricting AllowedOrigins")
+				break
+			}
+		}
+	}
 
-    // Optional rate limiting (per-IP). Apply to API routes but not health endpoints.
-    var apiRate func(http.Handler) http.Handler = func(h http.Handler) http.Handler { return h }
-    if cfg.RateLimitEnabled {
-        period, err := time.ParseDuration(cfg.RateLimitPeriod)
-        if err != nil || period <= 0 {
-            logger.Error("invalid rate limit period; disabling rate limit",
-                slog.String("period", cfg.RateLimitPeriod),
-                slog.Any("error", err))
-        } else {
-            apiRate = httprate.LimitByIP(cfg.RateLimit, period)
-        }
-    }
+	// Optional rate limiting (per-IP). Apply to API routes but not health endpoints.
+	var apiRate func(http.Handler) http.Handler = func(h http.Handler) http.Handler { return h }
+	if cfg.RateLimitEnabled {
+		period, err := time.ParseDuration(cfg.RateLimitPeriod)
+		if err != nil || period <= 0 {
+			appLogger.Error("invalid rate limit period; disabling rate limit",
+				slog.String("period", cfg.RateLimitPeriod),
+				slog.Any("error", err))
+		} else {
+			apiRate = httprate.LimitByIP(cfg.RateLimit, period)
+		}
+	}
 
-    // Health endpoints
-    r.Group(func(r chi.Router) {
-        r.Get("/healthz", handlers.Health)
-        r.Get("/readyz", handlers.Ready)
-    })
+	// Health endpoints
+	r.Group(func(r chi.Router) {
+		r.Get("/healthz", handlers.Health)
+		r.Get("/readyz", handlers.Ready)
+	})
 
-    // API v1
-    r.Route("/api/v1", func(r chi.Router) {
-        r.Use(apiRate)
-        r.Get("/ping", handlers.Ping)
-        r.Post("/echo", handlers.Echo)
-    })
+	// API v1
+	r.Route("/api/v1", func(r chi.Router) {
+		r.Use(apiRate)
+		r.Get("/ping", handlers.Ping)
+		r.Post("/echo", handlers.Echo)
+	})
 
-    // Swagger UI (generated docs). Available at /swagger/index.html
-    // The docs are generated by running `swag init` (see README).
-    // The URL param points to where the `doc.json` is served.
-    docs.SwaggerInfo.Title = "Init Codex API"
-    docs.SwaggerInfo.Version = "1.0"
-    docs.SwaggerInfo.BasePath = "/"
-    r.Get("/swagger/*", httpSwagger.Handler(
-        httpSwagger.URL("/swagger/doc.json"),
-        httpSwagger.DeepLinking(true),
-        httpSwagger.DocExpansion("none"),
-        httpSwagger.DomID("swagger-ui"),
-    ))
+	// Swagger UI (generated docs). Available at /swagger/index.html
+	// The docs are generated by running `swag init` (see README).
+	// The URL param points to where the `doc.json` is served.
+	docs.SwaggerInfo.Title = "Init Codex API"
+	docs.SwaggerInfo.Version = "1.0"
+	docs.SwaggerInfo.BasePath = "/"
+	r.Get("/swagger/*", httpSwagger.Handler(
+		httpSwagger.URL("/swagger/doc.json"),
+		httpSwagger.DeepLinking(true),
+		httpSwagger.DocExpansion("none"),
+		httpSwagger.DomID("swagger-ui"),
+	))
 
-    // Alias the Swagger UI under /api-docs as well.
-    // Redirect /api-docs to the UI index for convenience.
-    r.Get("/api-docs", func(w http.ResponseWriter, r *http.Request) {
-        http.Redirect(w, r, "/api-docs/index.html", http.StatusTemporaryRedirect)
-    })
-    r.Get("/api-docs/*", httpSwagger.Handler(
-        httpSwagger.URL("/swagger/doc.json"),
-        httpSwagger.DeepLinking(true),
-        httpSwagger.DocExpansion("none"),
-        httpSwagger.DomID("swagger-ui"),
-    ))
+	// Alias the Swagger UI under /api-docs as well.
+	// Redirect /api-docs to the UI index for convenience.
+	r.Get("/api-docs", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/api-docs/index.html", http.StatusTemporaryRedirect)
+	})
+	r.Get("/api-docs/*", httpSwagger.Handler(
+		httpSwagger.URL("/swagger/doc.json"),
+		httpSwagger.DeepLinking(true),
+		httpSwagger.DocExpansion("none"),
+		httpSwagger.DomID("swagger-ui"),
+	))
 
-    // Root route
-    r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-        w.Header().Set("Content-Type", "application/json")
-        w.WriteHeader(http.StatusOK)
-        if _, err := w.Write([]byte(fmt.Sprintf(`{"name":"%s","version":"%s","docs":"/swagger/index.html"}`,
-            "go-api", "1.0.0"))); err != nil {
-            // Log write error via request-scoped logger if present
-            if l := logging.FromContext(r.Context()); l != nil {
-                l.Error("failed to write root response", slog.String("error", err.Error()))
-            }
-        }
-    })
+	// Root route
+	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+		// Get logger from context
+		if l := pkglogger.FromContext(r.Context()); l != nil {
+			l.Info("Root endpoint accessed")
+		}
 
-    return r
+		// Response
+		response := fmt.Sprintf(`{"name":"%s","version":"%s","docs":"/swagger/index.html","status":"healthy"}`,
+			"go-api", "1.0.0")
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+
+		if _, err := w.Write([]byte(response)); err != nil {
+			// Error level - something went wrong
+			if l := pkglogger.FromContext(r.Context()); l != nil {
+				l.With(slog.String("component", "API")).Error("failed to write root response",
+					slog.String("error", err.Error()),
+					slog.Int("response_size", len(response)),
+				)
+			}
+		}
+	})
+
+	// Test route for demonstrating logging capabilities
+	r.Get("/test/logs", func(w http.ResponseWriter, r *http.Request) {
+		l := pkglogger.FromContext(r.Context())
+		if l == nil {
+			http.Error(w, "Logger not available", http.StatusInternalServerError)
+			return
+		}
+
+		// Parse query parameters
+		query := r.URL.Query()
+
+		// Optional parameters with defaults
+		includeDebug := query.Get("debug") != "false"        // default: true
+		includeInfo := query.Get("info") != "false"          // default: true
+		includeWarn := query.Get("warn") != "false"          // default: true
+		includeError := query.Get("error") != "false"        // default: true
+		includeGroups := query.Get("groups") != "false"      // default: true
+		count := 1                                            // default: 1 iteration
+		if c := query.Get("count"); c != "" {
+			if parsed, err := fmt.Sscanf(c, "%d", &count); err == nil && parsed == 1 && count > 0 && count <= 10 {
+				// Use the parsed count (max 10 to prevent abuse)
+			} else {
+				count = 1
+			}
+		}
+
+		// Generate log examples based on parameters
+		for i := 0; i < count; i++ {
+			iteration := i + 1
+
+			if includeDebug {
+				l.Debug("Debug message",
+					slog.String("detail", "This is for debugging"),
+					slog.Int("iteration", iteration),
+					slog.String("environment", "development"))
+			}
+
+			if includeInfo {
+				l.Info("Processing request",
+					slog.String("user_id", fmt.Sprintf("usr_%d", 100+iteration)),
+					slog.String("action", "view_dashboard"),
+					slog.Int("iteration", iteration))
+
+				l.Info("Database query executed",
+					slog.String("query", "SELECT * FROM users WHERE active = true"),
+					slog.Duration("duration", time.Duration(20+iteration)*time.Millisecond),
+					slog.Int("rows", 150+iteration*10))
+
+				l.Info("Cache hit",
+					slog.String("key", fmt.Sprintf("user:session:%d", iteration)),
+					slog.Duration("latency", time.Duration(iteration)*time.Microsecond),
+					slog.Float64("hit_rate", 0.95))
+			}
+
+			if includeWarn {
+				l.Warn("Cache miss",
+					slog.String("key", fmt.Sprintf("user:session:abc%d", iteration)),
+					slog.String("fallback", "database"),
+					slog.Duration("latency", time.Duration(100+iteration*50)*time.Millisecond))
+
+				l.Warn("Rate limit approaching",
+					slog.String("client_ip", fmt.Sprintf("192.168.1.%d", iteration)),
+					slog.Int("requests", 90+iteration),
+					slog.Int("limit", 100),
+					slog.Duration("reset_in", time.Duration(60-iteration*5)*time.Second))
+			}
+
+			if includeError {
+				l.Error("External API timeout",
+					slog.String("service", "payment-gateway"),
+					slog.String("endpoint", fmt.Sprintf("https://api.payment.com/charge/%d", iteration)),
+					slog.Duration("timeout", time.Duration(5)*time.Second),
+					slog.Bool("retrying", iteration < 3))
+
+				if iteration == 1 {
+					l.Error("Database connection lost",
+						slog.String("host", "db.example.com:5432"),
+						slog.String("error", "connection reset by peer"),
+						slog.Int("pool_size", 10),
+						slog.Int("active_connections", 0))
+				}
+			}
+
+			if includeGroups && iteration == 1 {
+				l.Info("Order processed",
+					slog.Group("order",
+						slog.String("id", "ord_789"),
+						slog.Float64("total", 299.99),
+						slog.String("currency", "USD"),
+						slog.Time("created_at", time.Now()),
+					),
+					slog.Group("customer",
+						slog.String("id", "cust_456"),
+						slog.String("email", "customer@example.com"),
+						slog.String("tier", "premium"),
+					),
+					slog.Group("shipping",
+						slog.String("method", "express"),
+						slog.String("carrier", "FedEx"),
+						slog.Float64("cost", 12.99),
+					))
+
+				l.Info("Analytics event",
+					slog.Group("event",
+						slog.String("type", "page_view"),
+						slog.String("page", "/products"),
+						slog.Duration("time_on_page", 45*time.Second),
+					),
+					slog.Group("user",
+						slog.String("id", "usr_789"),
+						slog.String("segment", "power_user"),
+						slog.Bool("authenticated", true),
+					))
+			}
+		}
+
+		// Response with summary
+		response := map[string]interface{}{
+			"message": "Log examples generated",
+			"parameters": map[string]interface{}{
+				"debug":  includeDebug,
+				"info":   includeInfo,
+				"warn":   includeWarn,
+				"error":  includeError,
+				"groups": includeGroups,
+				"count":  count,
+			},
+			"usage": "Use query parameters to control output: debug=false, info=false, warn=false, error=false, groups=false, count=3",
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(response)
+	})
+
+	return r
 }

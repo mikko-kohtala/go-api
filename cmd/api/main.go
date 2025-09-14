@@ -13,11 +13,11 @@ import (
 	"syscall"
 	"time"
 
-	_ "go.uber.org/automaxprocs"
+	_ "go.uber.org/automaxprocs" // Auto-tune GOMAXPROCS for containers
 
 	"github.com/mikko-kohtala/go-api/internal/config"
 	"github.com/mikko-kohtala/go-api/internal/httpserver"
-	"github.com/mikko-kohtala/go-api/internal/logging"
+	"github.com/mikko-kohtala/go-api/pkg/logger"
 )
 
 //go:generate swag init -g cmd/api/main.go -o internal/docs --parseDependency --parseInternal
@@ -26,6 +26,11 @@ import (
 // @description     A minimal, modern Go HTTP API template using chi, slog, Swagger, and optional rate limiting.
 // @BasePath        /
 
+func init() {
+	// Silence automaxprocs logging
+	os.Setenv("AUTOMAXPROCS", "")
+}
+
 func main() {
 	// Load configuration from env with sane defaults
 	cfg, err := config.Load()
@@ -33,8 +38,8 @@ func main() {
 		log.Fatalf("failed to load config: %v", err)
 	}
 
-	// Configure slog JSON logger
-	logger := logging.New(cfg.Env)
+	// Configure logger using the new package
+	appLogger := logger.NewForEnvironment(cfg.Env)
 
 	// CORS strict enforcement in production if enabled
 	if (cfg.Env == "production" || cfg.Env == "prod") && cfg.CORSStrict {
@@ -46,7 +51,7 @@ func main() {
 	}
 
 	// Build the HTTP server (router, middleware, handlers)
-	mux := httpserver.NewRouter(cfg, logger)
+	mux := httpserver.NewRouter(cfg, appLogger)
 
 	srv := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.Port),
@@ -60,9 +65,9 @@ func main() {
 
 	// Start server in background
 	go func() {
-		logger.Info("http server starting", slog.Int("port", cfg.Port))
+		appLogger.Info("Started server", slog.Int("port", cfg.Port))
 		if err := srv.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
-			logger.Error("http server failed", slog.String("error", err.Error()))
+			appLogger.Error("Server failed", slog.String("error", err.Error()))
 			os.Exit(1)
 		}
 	}()
@@ -71,13 +76,13 @@ func main() {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
-	logger.Info("shutdown signal received")
+	appLogger.Info("shutdown signal received")
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := srv.Shutdown(shutdownCtx); err != nil {
-		logger.Error("graceful shutdown failed", slog.String("error", err.Error()))
+		appLogger.Error("graceful shutdown failed", slog.String("error", err.Error()))
 		_ = srv.Close()
 	}
-	logger.Info("server stopped")
+	appLogger.Info("server stopped")
 }

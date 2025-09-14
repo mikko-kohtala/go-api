@@ -1,17 +1,17 @@
 package handlers
 
 import (
-    "net/http"
-    "github.com/mikko-kohtala/go-api/internal/response"
-    "github.com/mikko-kohtala/go-api/internal/validate"
+	"github.com/mikko-kohtala/go-api/internal/response"
+	"github.com/mikko-kohtala/go-api/internal/validate"
+	"net/http"
 )
 
 type EchoRequest struct {
-    Message string `json:"message" validate:"required,min=1"`
+	Message string `json:"message" validate:"required,min=1"`
 }
 
 type EchoResponse struct {
-    Message string `json:"message"`
+	Message string `json:"message"`
 }
 
 // Ping godoc
@@ -21,7 +21,7 @@ type EchoResponse struct {
 // @Success      200 {object} map[string]string
 // @Router       /api/v1/ping [get]
 func Ping(w http.ResponseWriter, r *http.Request) {
-    response.JSON(w, r, http.StatusOK, map[string]string{"pong": "ok"})
+	response.JSON(w, r, http.StatusOK, map[string]string{"pong": "ok"})
 }
 
 // Echo godoc
@@ -35,15 +35,15 @@ func Ping(w http.ResponseWriter, r *http.Request) {
 // @Failure      400      {object}  map[string]string
 // @Router       /api/v1/echo [post]
 func Echo(w http.ResponseWriter, r *http.Request) {
-    var req EchoRequest
-    errs, err := validate.BindAndValidate(r, &req)
-    if err != nil {
-        response.Error(w, r, http.StatusBadRequest, "invalid_request", "invalid JSON", nil)
-        return
-    }
-    if errs != nil {
-        response.Error(w, r, http.StatusBadRequest, "validation_error", "validation failed", errs)
-        return
-    }
-    response.JSON(w, r, http.StatusOK, EchoResponse{Message: req.Message})
+	var req EchoRequest
+	errs, err := validate.BindAndValidate(r, &req)
+	if err != nil {
+		response.Error(w, r, http.StatusBadRequest, "invalid_request", "invalid JSON", nil)
+		return
+	}
+	if errs != nil {
+		response.Error(w, r, http.StatusBadRequest, "validation_error", "validation failed", errs)
+		return
+	}
+	response.JSON(w, r, http.StatusOK, EchoResponse{Message: req.Message})
 }
