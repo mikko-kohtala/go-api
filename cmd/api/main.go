@@ -15,9 +15,11 @@ import (
 
 	_ "go.uber.org/automaxprocs"
 
+	"github.com/mikko-kohtala/go-api/internal/app"
 	"github.com/mikko-kohtala/go-api/internal/config"
 	"github.com/mikko-kohtala/go-api/internal/httpserver"
 	"github.com/mikko-kohtala/go-api/internal/logging"
+	"github.com/mikko-kohtala/go-api/internal/telemetry"
 )
 
 //go:generate swag init -g cmd/api/main.go -o internal/docs --parseDependency --parseInternal
@@ -36,6 +38,22 @@ func main() {
 	// Configure slog JSON logger
 	logger := logging.New(cfg.Env)
 
+	// Initialize tracing if configured
+	otlpEndpoint := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
+	shutdownTracer, err := telemetry.InitTracer(context.Background(), "go-api", "1.0.0", otlpEndpoint)
+	if err != nil {
+		logger.Warn("failed to initialize tracing", slog.String("error", err.Error()))
+	}
+	if shutdownTracer != nil {
+		defer func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if err := shutdownTracer(ctx); err != nil {
+				logger.Error("failed to shutdown tracer", slog.String("error", err.Error()))
+			}
+		}()
+	}
+
 	// CORS strict enforcement in production if enabled
 	if (cfg.Env == "production" || cfg.Env == "prod") && cfg.CORSStrict {
 		for _, o := range cfg.CORSAllowedOrigins {
@@ -45,8 +63,11 @@ func main() {
 		}
 	}
 
+	// Create application with dependencies
+	application := app.New(cfg, logger)
+
 	// Build the HTTP server (router, middleware, handlers)
-	mux := httpserver.NewRouter(cfg, logger)
+	mux := httpserver.NewRouter(application)
 
 	srv := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.Port),
@@ -79,5 +100,11 @@ func main() {
 		logger.Error("graceful shutdown failed", slog.String("error", err.Error()))
 		_ = srv.Close()
 	}
+
+	// Shutdown application dependencies
+	if err := application.Shutdown(shutdownCtx); err != nil {
+		logger.Error("application shutdown failed", slog.String("error", err.Error()))
+	}
+
 	logger.Info("server stopped")
 }
