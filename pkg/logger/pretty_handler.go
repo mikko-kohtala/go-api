@@ -51,10 +51,9 @@ func (h *PrettyHandler) Handle(_ context.Context, r slog.Record) error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	// Time with milliseconds - simplified format
-	hour := r.Time.Hour()
-	timeStr := fmt.Sprintf("%d:%02d:%02d.%03d",
-		hour,
+	// Time with milliseconds - consistent format
+	timeStr := fmt.Sprintf("%02d:%02d:%02d.%03d",
+		r.Time.Hour(),
 		r.Time.Minute(),
 		r.Time.Second(),
 		r.Time.Nanosecond()/1e6)
