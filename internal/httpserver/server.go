@@ -15,12 +15,20 @@ import (
 	httpSwagger "github.com/swaggo/http-swagger/v2"
 
 	"github.com/mikko-kohtala/go-api/internal/config"
-	"github.com/mikko-kohtala/go-api/internal/handlers"
+	"github.com/mikko-kohtala/go-api/internal/routes"
+	"github.com/mikko-kohtala/go-api/internal/services"
 	pkglogger "github.com/mikko-kohtala/go-api/pkg/logger"
 )
 
 // NewRouter assembles the chi router with middleware and routes.
 func NewRouter(cfg *config.Config, appLogger *slog.Logger) http.Handler {
+	// Initialize services
+	userService := services.NewUserService()
+	statsService := services.NewStatsService()
+
+	// Initialize routes with services
+	routesHandler := routes.NewRoutes(appLogger, userService, statsService)
+
 	r := chi.NewRouter()
 
 	// Core middleware (place timeout early to bound all work)
@@ -67,15 +75,13 @@ func NewRouter(cfg *config.Config, appLogger *slog.Logger) http.Handler {
 
 	// Health endpoints
 	r.Group(func(r chi.Router) {
-		r.Get("/healthz", handlers.Health)
-		r.Get("/readyz", handlers.Ready)
+		routesHandler.SetupHealthRoutes(r)
 	})
 
 	// API v1
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Use(apiRate)
-		r.Get("/ping", handlers.Ping)
-		r.Post("/echo", handlers.Echo)
+		routesHandler.SetupAPIV1Routes(r)
 	})
 
 	// Swagger UI (generated docs). Available at /swagger/index.html
@@ -128,8 +134,17 @@ func NewRouter(cfg *config.Config, appLogger *slog.Logger) http.Handler {
 		}
 	})
 
-	// Test route for demonstrating logging capabilities
-	r.Get("/test/logs", func(w http.ResponseWriter, r *http.Request) {
+	// Test routes
+	r.Route("/test", func(r chi.Router) {
+		routesHandler.SetupTestRoutes(r, testLogHandler(appLogger))
+	})
+
+	return r
+}
+
+// testLogHandler creates a handler for demonstrating logging capabilities
+func testLogHandler(appLogger *slog.Logger) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
 		l := pkglogger.FromContext(r.Context())
 		if l == nil {
 			http.Error(w, "Logger not available", http.StatusInternalServerError)
@@ -261,7 +276,5 @@ func NewRouter(cfg *config.Config, appLogger *slog.Logger) http.Handler {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(response)
-	})
-
-	return r
+	}
 }
