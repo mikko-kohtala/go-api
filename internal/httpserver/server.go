@@ -29,6 +29,7 @@ func NewRouter(cfg *config.Config, logger *slog.Logger) http.Handler {
     r.Use(middleware.RealIP)
     // Compression level is configurable
     r.Use(middleware.Compress(cfg.CompressionLevel))
+    r.Use(SecurityHeaders())
     r.Use(LoggingMiddleware(logger))
     r.Use(middleware.Recoverer)
 
