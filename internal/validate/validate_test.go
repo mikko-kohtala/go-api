@@ -30,3 +30,23 @@ func TestBindAndValidate_FieldNamesFromJSONTags(t *testing.T) {
     }
 }
 
+func TestBindAndValidate_ValidData(t *testing.T) {
+    r := httptest.NewRequest(http.MethodPost, "/", bytes.NewBufferString(`{"email":"test@example.com"}`))
+    errs, err := BindAndValidate(r, &sample{})
+    if err != nil {
+        t.Fatalf("unexpected decode error: %v", err)
+    }
+    if errs != nil {
+        t.Fatalf("unexpected validation errors: %v", errs)
+    }
+}
+
+func TestBindAndValidate_EmptyBody(t *testing.T) {
+    r := httptest.NewRequest(http.MethodPost, "/", nil)
+    _, err := BindAndValidate(r, &sample{})
+    if err == nil {
+        t.Fatal("expected error for empty body, got nil")
+    }
+}
+
+

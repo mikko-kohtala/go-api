@@ -18,6 +18,8 @@ import (
 	"github.com/mikko-kohtala/go-api/internal/config"
 	"github.com/mikko-kohtala/go-api/internal/httpserver"
 	"github.com/mikko-kohtala/go-api/internal/logging"
+	"github.com/mikko-kohtala/go-api/internal/tracing"
+	"go.opentelemetry.io/otel/sdk/trace"
 )
 
 //go:generate swag init -g cmd/api/main.go -o internal/docs --parseDependency --parseInternal
@@ -35,6 +37,25 @@ func main() {
 
 	// Configure slog JSON logger
 	logger := logging.New(cfg.Env)
+
+	// Initialize tracing if enabled
+	var tracerProvider interface{}
+	if cfg.TracingEnabled {
+		tracingCfg := tracing.Config{
+			ServiceName:    "go-api",
+			ServiceVersion: "1.0.0",
+			Environment:    cfg.Env,
+			Enabled:        cfg.TracingEnabled,
+		}
+		
+		var err error
+		tracerProvider, err = tracing.Init(tracingCfg)
+		if err != nil {
+			logger.Error("failed to initialize tracing", slog.String("error", err.Error()))
+			log.Fatalf("failed to initialize tracing: %v", err)
+		}
+		logger.Info("tracing initialized")
+	}
 
 	// CORS strict enforcement in production if enabled
 	if (cfg.Env == "production" || cfg.Env == "prod") && cfg.CORSStrict {
@@ -79,5 +100,17 @@ func main() {
 		logger.Error("graceful shutdown failed", slog.String("error", err.Error()))
 		_ = srv.Close()
 	}
+	
+	// Shutdown tracing if enabled
+	if cfg.TracingEnabled && tracerProvider != nil {
+		if tp, ok := tracerProvider.(*trace.TracerProvider); ok {
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if err := tp.Shutdown(shutdownCtx); err != nil {
+				logger.Error("tracing shutdown failed", slog.String("error", err.Error()))
+			}
+		}
+	}
+	
 	logger.Info("server stopped")
 }

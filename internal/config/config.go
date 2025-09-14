@@ -29,6 +29,11 @@ type Config struct {
 
     // Compression level (1-9)
     CompressionLevel int `env:"COMPRESSION_LEVEL" envDefault:"5"`
+
+    // Observability
+    TracingEnabled     bool   `env:"TRACING_ENABLED" envDefault:"false"`
+    MetricsEnabled    bool   `env:"METRICS_ENABLED" envDefault:"true"`
+    MetricsPath       string `env:"METRICS_PATH" envDefault:"/metrics"`
 }
 
 // Load parses environment variables into Config and validates values.

@@ -10,6 +10,7 @@ import (
     "github.com/go-chi/chi/v5/middleware"
     "github.com/go-chi/cors"
     "github.com/go-chi/httprate"
+    "github.com/prometheus/client_golang/prometheus/promhttp"
     httpSwagger "github.com/swaggo/http-swagger/v2"
     docs "github.com/mikko-kohtala/go-api/internal/docs"
 
@@ -29,6 +30,15 @@ func NewRouter(cfg *config.Config, logger *slog.Logger) http.Handler {
     r.Use(middleware.RealIP)
     // Compression level is configurable
     r.Use(middleware.Compress(cfg.CompressionLevel))
+    
+    // Observability middleware
+    if cfg.MetricsEnabled {
+        r.Use(MetricsMiddleware)
+    }
+    if cfg.TracingEnabled {
+        r.Use(TracingMiddleware)
+    }
+    
     r.Use(LoggingMiddleware(logger))
     r.Use(middleware.Recoverer)
 
@@ -69,6 +79,11 @@ func NewRouter(cfg *config.Config, logger *slog.Logger) http.Handler {
         r.Get("/healthz", handlers.Health)
         r.Get("/readyz", handlers.Ready)
     })
+
+    // Metrics endpoint (if enabled)
+    if cfg.MetricsEnabled {
+        r.Get(cfg.MetricsPath, promhttp.Handler().ServeHTTP)
+    }
 
     // API v1
     r.Route("/api/v1", func(r chi.Router) {
