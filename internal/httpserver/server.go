@@ -27,9 +27,10 @@ func NewRouter(cfg *config.Config, logger *slog.Logger) http.Handler {
     r.Use(BodyLimit(cfg.BodyLimitBytes))
     r.Use(RequestID)
     r.Use(middleware.RealIP)
+    // Compression level is configurable
+    r.Use(middleware.Compress(cfg.CompressionLevel))
     r.Use(LoggingMiddleware(logger))
     r.Use(middleware.Recoverer)
-    r.Use(middleware.Compress(5))
 
     // CORS
     r.Use(cors.Handler(cors.Options{

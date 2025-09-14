@@ -8,8 +8,9 @@ A clean Go 1.23 HTTP API starter using:
 - Swagger/OpenAPI docs via swag
 - Optional per‑IP rate limiting
 - Graceful shutdown and sane defaults
- - JSON request validation (go-playground/validator) with unknown-field rejection
- - Request body size limit via `BODY_LIMIT_BYTES` (default 10 MiB)
+- JSON request validation (go-playground/validator) with unknown-field rejection
+- Request body size limit via `BODY_LIMIT_BYTES` (default 10 MiB)
+- Configurable gzip compression level (`COMPRESSION_LEVEL`, default 5)
 
 Quick start
 -----------
@@ -33,6 +34,7 @@ Environment variables (see `.env.example`):
 - `PORT` (default 8080)
 - `REQUEST_TIMEOUT` (e.g. 15s)
 - `BODY_LIMIT_BYTES` (default 10485760 = 10MiB)
+- `COMPRESSION_LEVEL` (1–9, default 5)
 - `CORS_ALLOWED_ORIGINS`, `CORS_ALLOWED_METHODS`, `CORS_ALLOWED_HEADERS`
 - `RATE_LIMIT_ENABLED` (true|false)
 - `RATE_LIMIT_PERIOD` (e.g. 1m)
@@ -64,4 +66,6 @@ Notes
 - The Swagger docs are generated from comments (`swag init`).
 - Request ID propagation: the server trusts `X-Request-ID` (or `X-Correlation-ID`) from the client, echoes it back on responses, and includes it in every log line.
 - Validation: JSON bodies are decoded with `DisallowUnknownFields` and validated via struct tags (e.g. `validate:"required,min=1"`).
- - Rate limiting is applied to `/api/*` routes, not to health endpoints.
+- Rate limiting is applied to `/api/*` routes, not to health endpoints.
+- In-memory rate limiting is per-instance; for multi-instance deployments, use sticky sessions or replace with a distributed limiter.
+- CORS strict mode: set `CORS_STRICT=true` to fail startup if `*` is used in production.
