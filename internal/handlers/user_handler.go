@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"log/slog"
 	"net/http"
 
@@ -74,8 +75,13 @@ func (h *UserHandler) GetUserByID(w http.ResponseWriter, r *http.Request) {
 
 	user, err := h.userService.GetUserByID(r.Context(), userID)
 	if err != nil {
-		h.logger.Debug("user not found", slog.String("user_id", userID))
-		response.Error(w, r, http.StatusNotFound, "not_found", "User not found", nil)
+		if errors.Is(err, services.ErrUserNotFound) {
+			h.logger.Debug("user not found", slog.String("user_id", userID))
+			response.Error(w, r, http.StatusNotFound, "not_found", "User not found", nil)
+			return
+		}
+		h.logger.Error("failed to get user", slog.String("error", err.Error()))
+		response.Error(w, r, http.StatusInternalServerError, "internal_error", "Failed to retrieve user", nil)
 		return
 	}
 
@@ -108,9 +114,12 @@ func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 
 	user, err := h.userService.CreateUser(r.Context(), req.Email, req.Name)
 	if err != nil {
-		// Check if it's a duplicate email error
-		if err.Error() == "email already exists: "+req.Email {
+		if errors.Is(err, services.ErrEmailAlreadyExists) {
 			response.Error(w, r, http.StatusConflict, "duplicate_email", "Email already exists", nil)
+			return
+		}
+		if errors.Is(err, services.ErrInvalidEmail) {
+			response.Error(w, r, http.StatusBadRequest, "invalid_email", "Invalid email address", nil)
 			return
 		}
 		h.logger.Error("failed to create user", slog.String("error", err.Error()))
@@ -167,8 +176,12 @@ func (h *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 
 	user, err := h.userService.UpdateUser(r.Context(), userID, updates)
 	if err != nil {
-		if err.Error() == "user not found: "+userID {
+		if errors.Is(err, services.ErrUserNotFound) {
 			response.Error(w, r, http.StatusNotFound, "not_found", "User not found", nil)
+			return
+		}
+		if errors.Is(err, services.ErrEmailAlreadyExists) {
+			response.Error(w, r, http.StatusConflict, "duplicate_email", "Email already exists", nil)
 			return
 		}
 		h.logger.Error("failed to update user", slog.String("error", err.Error()))
@@ -198,7 +211,7 @@ func (h *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 
 	err := h.userService.DeleteUser(r.Context(), userID)
 	if err != nil {
-		if err.Error() == "user not found: "+userID {
+		if errors.Is(err, services.ErrUserNotFound) {
 			response.Error(w, r, http.StatusNotFound, "not_found", "User not found", nil)
 			return
 		}

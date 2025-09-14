@@ -2,8 +2,18 @@ package services
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"sync"
 	"time"
+)
+
+// Custom error types for better error handling
+var (
+	ErrUserNotFound       = errors.New("user not found")
+	ErrEmailAlreadyExists = errors.New("email already exists")
+	ErrInvalidUserID      = errors.New("invalid user ID")
+	ErrInvalidEmail       = errors.New("invalid email address")
 )
 
 type User struct {
@@ -23,8 +33,7 @@ type UserService interface {
 }
 
 type userService struct {
-	// In a real application, this would have a database connection
-	// For now, we'll use in-memory storage as an example
+	mu    sync.RWMutex // Protects concurrent access to the users map
 	users map[string]*User
 }
 
@@ -51,30 +60,54 @@ func NewUserService() UserService {
 }
 
 func (s *userService) GetUserByID(ctx context.Context, id string) (*User, error) {
-	if user, exists := s.users[id]; exists {
-		return user, nil
+	if id == "" {
+		return nil, ErrInvalidUserID
 	}
-	return nil, fmt.Errorf("user not found: %s", id)
+
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	if user, exists := s.users[id]; exists {
+		// Return a copy to prevent external modifications
+		userCopy := *user
+		return &userCopy, nil
+	}
+	return nil, ErrUserNotFound
 }
 
 func (s *userService) GetAllUsers(ctx context.Context) ([]User, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	users := make([]User, 0, len(s.users))
 	for _, user := range s.users {
+		// Return copies to prevent external modifications
 		users = append(users, *user)
 	}
 	return users, nil
 }
 
 func (s *userService) CreateUser(ctx context.Context, email, name string) (*User, error) {
-	// Generate a simple ID (in production, use UUID)
-	id := fmt.Sprintf("usr_%03d", len(s.users)+1)
+	// Basic validation
+	if email == "" {
+		return nil, ErrInvalidEmail
+	}
+	if name == "" {
+		return nil, errors.New("name is required")
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
 	// Check if email already exists
 	for _, user := range s.users {
 		if user.Email == email {
-			return nil, fmt.Errorf("email already exists: %s", email)
+			return nil, ErrEmailAlreadyExists
 		}
 	}
+
+	// Generate a simple ID (in production, use UUID)
+	id := fmt.Sprintf("usr_%03d", len(s.users)+1)
 
 	user := &User{
 		ID:        id,
@@ -85,32 +118,57 @@ func (s *userService) CreateUser(ctx context.Context, email, name string) (*User
 	}
 
 	s.users[id] = user
-	return user, nil
+
+	// Return a copy
+	userCopy := *user
+	return &userCopy, nil
 }
 
 func (s *userService) UpdateUser(ctx context.Context, id string, updates map[string]interface{}) (*User, error) {
-	user, exists := s.users[id]
-	if !exists {
-		return nil, fmt.Errorf("user not found: %s", id)
+	if id == "" {
+		return nil, ErrInvalidUserID
 	}
 
-	// Apply updates (simplified version)
-	if name, ok := updates["name"].(string); ok {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	user, exists := s.users[id]
+	if !exists {
+		return nil, ErrUserNotFound
+	}
+
+	// Apply updates with validation
+	if name, ok := updates["name"].(string); ok && name != "" {
 		user.Name = name
 	}
-	if email, ok := updates["email"].(string); ok {
+	if email, ok := updates["email"].(string); ok && email != "" {
+		// Check if new email already exists (except for current user)
+		for uid, u := range s.users {
+			if uid != id && u.Email == email {
+				return nil, ErrEmailAlreadyExists
+			}
+		}
 		user.Email = email
 	}
-	if role, ok := updates["role"].(string); ok {
+	if role, ok := updates["role"].(string); ok && role != "" {
 		user.Role = role
 	}
 
-	return user, nil
+	// Return a copy
+	userCopy := *user
+	return &userCopy, nil
 }
 
 func (s *userService) DeleteUser(ctx context.Context, id string) error {
+	if id == "" {
+		return ErrInvalidUserID
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	if _, exists := s.users[id]; !exists {
-		return fmt.Errorf("user not found: %s", id)
+		return ErrUserNotFound
 	}
 	delete(s.users, id)
 	return nil
