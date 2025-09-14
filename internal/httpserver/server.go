@@ -90,6 +90,18 @@ func NewRouter(cfg *config.Config, logger *slog.Logger) http.Handler {
         httpSwagger.DomID("swagger-ui"),
     ))
 
+    // Alias the Swagger UI under /api-docs as well.
+    // Redirect /api-docs to the UI index for convenience.
+    r.Get("/api-docs", func(w http.ResponseWriter, r *http.Request) {
+        http.Redirect(w, r, "/api-docs/index.html", http.StatusTemporaryRedirect)
+    })
+    r.Get("/api-docs/*", httpSwagger.Handler(
+        httpSwagger.URL("/swagger/doc.json"),
+        httpSwagger.DeepLinking(true),
+        httpSwagger.DocExpansion("none"),
+        httpSwagger.DomID("swagger-ui"),
+    ))
+
     // Root route
     r.Get("/", func(w http.ResponseWriter, r *http.Request) {
         w.Header().Set("Content-Type", "application/json")
