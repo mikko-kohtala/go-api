@@ -25,11 +25,10 @@ const (
 
 // PrettyHandler implements a custom slog.Handler for pretty local logging
 type PrettyHandler struct {
-	opts       slog.HandlerOptions
-	mu         *sync.Mutex
-	out        io.Writer
-	attrs      []slog.Attr
-	requestLog map[string]bool // Track if we've seen incoming for each request
+	opts  slog.HandlerOptions
+	mu    *sync.Mutex
+	out   io.Writer
+	attrs []slog.Attr
 }
 
 // NewPrettyHandler creates a new pretty handler for local development
@@ -38,10 +37,9 @@ func NewPrettyHandler(out io.Writer, opts *slog.HandlerOptions) *PrettyHandler {
 		opts = &slog.HandlerOptions{}
 	}
 	return &PrettyHandler{
-		out:        out,
-		opts:       *opts,
-		mu:         &sync.Mutex{},
-		requestLog: make(map[string]bool),
+		out:  out,
+		opts: *opts,
+		mu:   &sync.Mutex{},
 	}
 }
 
@@ -77,14 +75,17 @@ func (h *PrettyHandler) Handle(_ context.Context, r slog.Record) error {
 		levelColor = colorWhite
 	}
 
-	// Extract request ID from attributes
+	// Extract request ID and direction from attributes
 	requestID := ""
+	direction := ""
 	fields := make([]string, 0)
 
 	// Process handler's attributes
 	for _, attr := range h.attrs {
 		if attr.Key == "request_id" {
 			requestID = attr.Value.String()
+		} else if attr.Key == "direction" {
+			direction = attr.Value.String()
 		} else if attr.Key != "component" {
 			fields = append(fields, formatAttr(attr))
 		}
@@ -94,6 +95,8 @@ func (h *PrettyHandler) Handle(_ context.Context, r slog.Record) error {
 	r.Attrs(func(attr slog.Attr) bool {
 		if attr.Key == "request_id" {
 			requestID = attr.Value.String()
+		} else if attr.Key == "direction" {
+			direction = attr.Value.String()
 		} else if attr.Key != "component" {
 			fields = append(fields, formatAttr(attr))
 		}
@@ -125,21 +128,16 @@ func (h *PrettyHandler) Handle(_ context.Context, r slog.Record) error {
 		}
 	}
 
-	// Add arrow for HTTP requests based on whether we've seen this request before
-	if isHTTPLog && requestID != "" {
-		if !h.requestLog[requestID] {
-			// First time seeing this request - it's incoming
-			h.requestLog[requestID] = true
+	// Add arrow for HTTP requests based on direction
+	if isHTTPLog && direction != "" {
+		if direction == "incoming" {
 			logLine.WriteString(colorCyan)
 			logLine.WriteString("→ ")
 			logLine.WriteString(colorReset)
-		} else {
-			// Second time - it's the response
+		} else if direction == "outgoing" {
 			logLine.WriteString(colorGreen)
 			logLine.WriteString("← ")
 			logLine.WriteString(colorReset)
-			// Clean up the map entry
-			delete(h.requestLog, requestID)
 		}
 	}
 

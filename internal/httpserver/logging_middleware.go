@@ -31,7 +31,9 @@ func LoggingMiddleware(logger *slog.Logger) func(next http.Handler) http.Handler
 
             // Log incoming request (with arrow indicator in pretty handler)
             if prettyLogs {
-                reqLogger.Info(fmt.Sprintf("%s %s", r.Method, r.URL.Path))
+                // Add direction indicator for incoming request
+                incomingLogger := reqLogger.With(slog.String("direction", "incoming"))
+                incomingLogger.Info(fmt.Sprintf("%s %s", r.Method, r.URL.Path))
             }
 
             // store logger in context for handlers to use if desired
@@ -41,7 +43,9 @@ func LoggingMiddleware(logger *slog.Logger) func(next http.Handler) http.Handler
 
             if prettyLogs {
                 // Log the completed request with status and latency
-                reqLogger.Info(fmt.Sprintf("%s %s", r.Method, r.URL.Path),
+                // Add direction indicator for outgoing response
+                outgoingLogger := reqLogger.With(slog.String("direction", "outgoing"))
+                outgoingLogger.Info(fmt.Sprintf("%s %s", r.Method, r.URL.Path),
                     slog.Int("status", ww.Status()),
                     slog.Duration("latency", duration),
                 )
