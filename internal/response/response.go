@@ -6,6 +6,7 @@ import (
     "net/http"
 
     "github.com/mikko-kohtala/go-api/internal/logging"
+    "github.com/mikko-kohtala/go-api/internal/requestid"
 )
 
 // ErrorResponse is a consistent error envelope for API responses.
@@ -35,9 +36,13 @@ func JSON(w http.ResponseWriter, r *http.Request, status int, v any) {
 
 // Error writes a standardized error response.
 func Error(w http.ResponseWriter, r *http.Request, status int, code, message string, fields map[string]string) {
-    rid := r.Header.Get("X-Request-ID")
+    // Prefer ID stored in context by middleware; fall back to trusted headers.
+    rid := requestid.FromContext(r.Context())
     if rid == "" {
-        rid = r.Header.Get("X-Correlation-ID")
+        rid = r.Header.Get(requestid.HeaderRequestID)
+        if rid == "" {
+            rid = r.Header.Get(requestid.HeaderCorrelationID)
+        }
     }
     JSON(w, r, status, ErrorResponse{
         Error:     code,
@@ -46,4 +51,3 @@ func Error(w http.ResponseWriter, r *http.Request, status int, code, message str
         RequestID: rid,
     })
 }
-

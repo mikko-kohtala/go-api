@@ -1,25 +1,23 @@
 package httpserver
 
 import (
-    "context"
     "crypto/rand"
     "encoding/hex"
     "net/http"
-    "strings"
     "regexp"
+    "strings"
+
+    "github.com/mikko-kohtala/go-api/internal/requestid"
 )
 
-type ctxKey string
-
-const requestIDKey ctxKey = "request_id"
-
 // RequestID middleware trusts an incoming X-Request-ID or X-Correlation-ID header
-// from the client. If absent, it generates a secure random ID.
+// from the client. If absent, it generates a secure random ID. The chosen ID is
+// set on the response header and stored in the request context.
 func RequestID(next http.Handler) http.Handler {
     return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
         rid := pickRequestID(r)
-        w.Header().Set("X-Request-ID", rid)
-        ctx := context.WithValue(r.Context(), requestIDKey, rid)
+        w.Header().Set(requestid.HeaderRequestID, rid)
+        ctx := requestid.IntoContext(r.Context(), rid)
         next.ServeHTTP(w, r.WithContext(ctx))
     })
 }
@@ -27,9 +25,9 @@ func RequestID(next http.Handler) http.Handler {
 var requestIDPattern = regexp.MustCompile(`^[A-Za-z0-9_.:-]{1,128}$`)
 
 func pickRequestID(r *http.Request) string {
-    rid := strings.TrimSpace(r.Header.Get("X-Request-ID"))
+    rid := strings.TrimSpace(r.Header.Get(requestid.HeaderRequestID))
     if rid == "" {
-        rid = strings.TrimSpace(r.Header.Get("X-Correlation-ID"))
+        rid = strings.TrimSpace(r.Header.Get(requestid.HeaderCorrelationID))
     }
     if rid != "" && requestIDPattern.MatchString(rid) {
         return rid
@@ -40,14 +38,4 @@ func pickRequestID(r *http.Request) string {
         return hex.EncodeToString(b[:])
     }
     return "unknown"
-}
-
-// GetRequestID returns the request id from context, if set.
-func GetRequestID(ctx context.Context) string {
-    if v := ctx.Value(requestIDKey); v != nil {
-        if s, ok := v.(string); ok {
-            return s
-        }
-    }
-    return ""
 }
