@@ -1,5 +1,5 @@
 APP_NAME=init-codex
-PORT?=8080
+PORT?=3000
 
 .PHONY: run build tidy test swag docs
 

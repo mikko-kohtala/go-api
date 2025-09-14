@@ -23,7 +23,7 @@ make docs
 make run
 ```
 
-Open http://localhost:8080/swagger/index.html for interactive API docs.
+Open http://localhost:3000/swagger/index.html for interactive API docs.
 
 Configuration
 -------------
@@ -31,7 +31,7 @@ Configuration
 Environment variables (see `.env.example`):
 
 - `APP_ENV` (development|production)
-- `PORT` (default 8080)
+- `PORT` (default 3000)
 - `REQUEST_TIMEOUT` (e.g. 15s)
 - `BODY_LIMIT_BYTES` (default 10485760 = 10MiB)
 - `COMPRESSION_LEVEL` (1–9, default 5)
@@ -56,7 +56,7 @@ Docker
 
 ```
 docker build -t init-codex:local .
-docker run --rm -p 8080:8080 init-codex:local
+docker run --rm -p 3000:3000 init-codex:local
 ```
 
 Notes
