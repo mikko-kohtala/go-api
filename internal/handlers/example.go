@@ -2,6 +2,7 @@ package handlers
 
 import (
     "net/http"
+    "github.com/mikko-kohtala/go-api/internal/response"
     "github.com/mikko-kohtala/go-api/internal/validate"
 )
 
@@ -20,7 +21,7 @@ type EchoResponse struct {
 // @Success      200 {object} map[string]string
 // @Router       /api/v1/ping [get]
 func Ping(w http.ResponseWriter, r *http.Request) {
-    respondJSON(r, w, http.StatusOK, map[string]string{"pong": "ok"})
+    response.JSON(w, r, http.StatusOK, map[string]string{"pong": "ok"})
 }
 
 // Echo godoc
@@ -37,12 +38,12 @@ func Echo(w http.ResponseWriter, r *http.Request) {
     var req EchoRequest
     errs, err := validate.BindAndValidate(r, &req)
     if err != nil {
-        respondJSON(r, w, http.StatusBadRequest, map[string]any{"error": "invalid JSON", "detail": err.Error()})
+        response.Error(w, r, http.StatusBadRequest, "invalid_request", "invalid JSON", nil)
         return
     }
     if errs != nil {
-        respondJSON(r, w, http.StatusBadRequest, map[string]any{"error": "validation failed", "fields": errs})
+        response.Error(w, r, http.StatusBadRequest, "validation_error", "validation failed", errs)
         return
     }
-    respondJSON(r, w, http.StatusOK, EchoResponse{Message: req.Message})
+    response.JSON(w, r, http.StatusOK, EchoResponse{Message: req.Message})
 }

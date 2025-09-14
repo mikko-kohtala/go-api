@@ -122,9 +122,13 @@ const docTemplate = `{
     "definitions": {
         "internal_handlers.EchoRequest": {
             "type": "object",
+            "required": [
+                "message"
+            ],
             "properties": {
                 "message": {
-                    "type": "string"
+                    "type": "string",
+                    "minLength": 1
                 }
             }
         },
