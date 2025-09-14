@@ -1,8 +1,8 @@
 package handlers
 
 import (
-    "net/http"
-    "github.com/mikko-kohtala/go-api/internal/response"
+	"github.com/mikko-kohtala/go-api/internal/response"
+	"net/http"
 )
 
 // Health godoc
@@ -12,7 +12,7 @@ import (
 // @Success      200 {object} map[string]string
 // @Router       /healthz [get]
 func Health(w http.ResponseWriter, r *http.Request) {
-    response.JSON(w, r, http.StatusOK, map[string]string{"status": "ok"})
+	response.JSON(w, r, http.StatusOK, map[string]string{"status": "ok"})
 }
 
 // Ready godoc
@@ -22,6 +22,6 @@ func Health(w http.ResponseWriter, r *http.Request) {
 // @Success      200 {object} map[string]string
 // @Router       /readyz [get]
 func Ready(w http.ResponseWriter, r *http.Request) {
-    // In a real app, check dependencies (DB, cache, etc.)
-    response.JSON(w, r, http.StatusOK, map[string]string{"ready": "true"})
+	// In a real app, check dependencies (DB, cache, etc.)
+	response.JSON(w, r, http.StatusOK, map[string]string{"ready": "true"})
 }

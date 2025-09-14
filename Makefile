@@ -1,7 +1,7 @@
 APP_NAME=init-codex
 PORT?=8080
 
-.PHONY: run build tidy test swag docs
+.PHONY: run build tidy test format swag docs
 
 run: ## Run the API locally with pretty logs
 	PRETTY_LOGS=true go run ./cmd/api
@@ -14,6 +14,10 @@ tidy:
 
 test:
 	go test ./...
+
+format: ## Format all Go code
+	go fmt ./...
+	gofmt -s -w .
 
 swag: ## Install swag CLI
 	go install github.com/swaggo/swag/cmd/swag@latest
