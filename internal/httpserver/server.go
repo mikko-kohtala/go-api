@@ -104,13 +104,26 @@ func NewRouter(cfg *config.Config, logger *slog.Logger) http.Handler {
 
     // Root route
     r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+        // Get logger from context for testing
+        if l := logging.FromContext(r.Context()); l != nil {
+            // Simple test log with request ID (already attached from middleware)
+            l.Info("This is a test log from root handler")
+        }
+
+        // Response
+        response := fmt.Sprintf(`{"name":"%s","version":"%s","docs":"/swagger/index.html","status":"healthy"}`,
+            "go-api", "1.0.0")
+
         w.Header().Set("Content-Type", "application/json")
         w.WriteHeader(http.StatusOK)
-        if _, err := w.Write([]byte(fmt.Sprintf(`{"name":"%s","version":"%s","docs":"/swagger/index.html"}`,
-            "go-api", "1.0.0"))); err != nil {
-            // Log write error via request-scoped logger if present
+
+        if _, err := w.Write([]byte(response)); err != nil {
+            // Error level - something went wrong
             if l := logging.FromContext(r.Context()); l != nil {
-                l.Error("failed to write root response", slog.String("error", err.Error()))
+                l.With(slog.String("component", "API")).Error("failed to write root response",
+                    slog.String("error", err.Error()),
+                    slog.Int("response_size", len(response)),
+                )
             }
         }
     })

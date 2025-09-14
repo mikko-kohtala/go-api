@@ -13,7 +13,7 @@ import (
 	"syscall"
 	"time"
 
-	_ "go.uber.org/automaxprocs"
+	_ "go.uber.org/automaxprocs" // Auto-tune GOMAXPROCS for containers
 
 	"github.com/mikko-kohtala/go-api/internal/config"
 	"github.com/mikko-kohtala/go-api/internal/httpserver"
@@ -25,6 +25,11 @@ import (
 // @version         1.0
 // @description     A minimal, modern Go HTTP API template using chi, slog, Swagger, and optional rate limiting.
 // @BasePath        /
+
+func init() {
+	// Silence automaxprocs logging
+	os.Setenv("AUTOMAXPROCS", "")
+}
 
 func main() {
 	// Load configuration from env with sane defaults
@@ -60,9 +65,9 @@ func main() {
 
 	// Start server in background
 	go func() {
-		logger.Info("http server starting", slog.Int("port", cfg.Port))
+		logger.Info("Started server", slog.Int("port", cfg.Port))
 		if err := srv.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
-			logger.Error("http server failed", slog.String("error", err.Error()))
+			logger.Error("Server failed", slog.String("error", err.Error()))
 			os.Exit(1)
 		}
 	}()
