@@ -4,6 +4,7 @@ import (
     "bytes"
     "net/http"
     "net/http/httptest"
+    "strings"
     "testing"
     "log/slog"
     "github.com/mikko-kohtala/go-api/internal/config"
@@ -28,6 +29,8 @@ func TestBodyLimit_EchoTooLarge(t *testing.T) {
         RateLimit:        1,
         RateLimitPeriod:  "1m",
         CompressionLevel: 5,
+        MetricsEnabled:  false,
+        TracingEnabled:  false,
     }
     // Avoid zero timeout by setting small positive duration
     if cfg.RequestTimeout <= 0 { cfg.RequestTimeout = 1 }
@@ -56,6 +59,8 @@ func TestHealth_NotRateLimited(t *testing.T) {
         RateLimit:        1,
         RateLimitPeriod:  "10s",
         CompressionLevel: 5,
+        MetricsEnabled:  false,
+        TracingEnabled:  false,
     }
     h := NewRouter(cfg, testLogger())
     // Call /healthz twice quickly; should not be limited
@@ -66,6 +71,105 @@ func TestHealth_NotRateLimited(t *testing.T) {
         if rr.Code != http.StatusOK {
             t.Fatalf("expected 200, got %d on iteration %d", rr.Code, i)
         }
+    }
+}
+
+func TestMetricsEndpoint(t *testing.T) {
+    cfg := &config.Config{
+        Env:              "test",
+        Port:             0,
+        RequestTimeout:   1,
+        BodyLimitBytes:   1048576,
+        CORSAllowedOrigins: []string{"*"},
+        CORSAllowedMethods: []string{"GET"},
+        CORSAllowedHeaders: []string{"*"},
+        RateLimitEnabled: false,
+        RateLimit:        1,
+        RateLimitPeriod:  "1m",
+        CompressionLevel: 5,
+        MetricsEnabled:  true,
+        MetricsPath:     "/metrics",
+        TracingEnabled:  false,
+    }
+    h := NewRouter(cfg, testLogger())
+    
+    rr := httptest.NewRecorder()
+    req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
+    h.ServeHTTP(rr, req)
+    
+    if rr.Code != http.StatusOK {
+        t.Fatalf("expected 200, got %d", rr.Code)
+    }
+    
+    // Check that metrics response contains Prometheus format
+    body := rr.Body.String()
+    if !strings.Contains(body, "# HELP") {
+        t.Error("expected Prometheus metrics format")
+    }
+}
+
+func TestRequestIDMiddleware(t *testing.T) {
+    cfg := &config.Config{
+        Env:              "test",
+        Port:             0,
+        RequestTimeout:   1,
+        BodyLimitBytes:   1048576,
+        CORSAllowedOrigins: []string{"*"},
+        CORSAllowedMethods: []string{"GET"},
+        CORSAllowedHeaders: []string{"*"},
+        RateLimitEnabled: false,
+        RateLimit:        1,
+        RateLimitPeriod:  "1m",
+        CompressionLevel: 5,
+        MetricsEnabled:  false,
+        TracingEnabled:  false,
+    }
+    h := NewRouter(cfg, testLogger())
+    
+    rr := httptest.NewRecorder()
+    req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+    h.ServeHTTP(rr, req)
+    
+    // Check that X-Request-ID header is set
+    requestID := rr.Header().Get("X-Request-ID")
+    if requestID == "" {
+        t.Error("expected X-Request-ID header to be set")
+    }
+}
+
+func TestCORSHeaders(t *testing.T) {
+    cfg := &config.Config{
+        Env:              "test",
+        Port:             0,
+        RequestTimeout:   1,
+        BodyLimitBytes:   1048576,
+        CORSAllowedOrigins: []string{"http://localhost:3000"},
+        CORSAllowedMethods: []string{"GET", "POST"},
+        CORSAllowedHeaders: []string{"Content-Type"},
+        RateLimitEnabled: false,
+        RateLimit:        1,
+        RateLimitPeriod:  "1m",
+        CompressionLevel: 5,
+        MetricsEnabled:  false,
+        TracingEnabled:  false,
+    }
+    h := NewRouter(cfg, testLogger())
+    
+    rr := httptest.NewRecorder()
+    req := httptest.NewRequest(http.MethodOptions, "/api/v1/ping", nil)
+    req.Header.Set("Origin", "http://localhost:3000")
+    req.Header.Set("Access-Control-Request-Method", "POST")
+    req.Header.Set("Access-Control-Request-Headers", "Content-Type")
+    
+    h.ServeHTTP(rr, req)
+    
+    if rr.Code != http.StatusOK {
+        t.Fatalf("expected 200, got %d", rr.Code)
+    }
+    
+    // Check CORS headers
+    if rr.Header().Get("Access-Control-Allow-Origin") != "http://localhost:3000" {
+        t.Error("expected CORS origin header")
     }
 }
 

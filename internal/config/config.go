@@ -10,7 +10,7 @@ import (
 // Config holds application configuration loaded from environment variables.
 type Config struct {
     Env              string        `env:"APP_ENV" envDefault:"development"`
-    Port             int           `env:"PORT" envDefault:"8080"`
+    Port             int           `env:"PORT" envDefault:"3000"`
     RequestTimeout   time.Duration `env:"REQUEST_TIMEOUT" envDefault:"15s"`
     BodyLimitBytes   int64         `env:"BODY_LIMIT_BYTES" envDefault:"10485760"` // 10 MiB
 
@@ -29,6 +29,11 @@ type Config struct {
 
     // Compression level (1-9)
     CompressionLevel int `env:"COMPRESSION_LEVEL" envDefault:"5"`
+
+    // Observability
+    TracingEnabled     bool   `env:"TRACING_ENABLED" envDefault:"false"`
+    MetricsEnabled    bool   `env:"METRICS_ENABLED" envDefault:"true"`
+    MetricsPath       string `env:"METRICS_PATH" envDefault:"/metrics"`
 }
 
 // Load parses environment variables into Config and validates values.

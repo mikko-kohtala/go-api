@@ -5,6 +5,7 @@ import (
     "log/slog"
     "net/http"
 
+    "github.com/mikko-kohtala/go-api/internal/errors"
     "github.com/mikko-kohtala/go-api/internal/logging"
 )
 
@@ -45,5 +46,20 @@ func Error(w http.ResponseWriter, r *http.Request, status int, code, message str
         Fields:    fields,
         RequestID: rid,
     })
+}
+
+// APIError writes an APIError response with appropriate HTTP status.
+func APIError(w http.ResponseWriter, r *http.Request, apiErr *errors.APIError) {
+    rid := r.Header.Get("X-Request-ID")
+    if rid == "" {
+        rid = r.Header.Get("X-Correlation-ID")
+    }
+    
+    // Add request ID to the error if not already set
+    if apiErr.RequestID == "" {
+        apiErr.RequestID = rid
+    }
+    
+    JSON(w, r, apiErr.HTTPStatus(), apiErr)
 }
 

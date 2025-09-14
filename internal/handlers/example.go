@@ -2,7 +2,9 @@ package handlers
 
 import (
     "net/http"
+    "github.com/mikko-kohtala/go-api/internal/errors"
     "github.com/mikko-kohtala/go-api/internal/response"
+    "github.com/mikko-kohtala/go-api/internal/services"
     "github.com/mikko-kohtala/go-api/internal/validate"
 )
 
@@ -12,6 +14,18 @@ type EchoRequest struct {
 
 type EchoResponse struct {
     Message string `json:"message"`
+}
+
+// Handler holds dependencies for handlers
+type Handler struct {
+    services *services.ServiceContainer
+}
+
+// NewHandler creates a new handler with dependencies
+func NewHandler(services *services.ServiceContainer) *Handler {
+    return &Handler{
+        services: services,
+    }
 }
 
 // Ping godoc
@@ -34,16 +48,39 @@ func Ping(w http.ResponseWriter, r *http.Request) {
 // @Success      200      {object}  EchoResponse
 // @Failure      400      {object}  map[string]string
 // @Router       /api/v1/echo [post]
-func Echo(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) Echo(w http.ResponseWriter, r *http.Request) {
     var req EchoRequest
     errs, err := validate.BindAndValidate(r, &req)
     if err != nil {
-        response.Error(w, r, http.StatusBadRequest, "invalid_request", "invalid JSON", nil)
+        apiErr := errors.Wrap(err, errors.ErrCodeInvalidRequest, "invalid JSON request")
+        response.APIError(w, r, apiErr)
         return
     }
     if errs != nil {
-        response.Error(w, r, http.StatusBadRequest, "validation_error", "validation failed", errs)
+        apiErr := errors.New(errors.ErrCodeValidation, "validation failed").WithFields(errs)
+        response.APIError(w, r, apiErr)
         return
     }
-    response.JSON(w, r, http.StatusOK, EchoResponse{Message: req.Message})
+    
+    // Use service layer for business logic
+    result, err := h.services.Echo.Echo(r.Context(), req.Message)
+    if err != nil {
+        apiErr := errors.Wrap(err, errors.ErrCodeInternal, "failed to process echo request")
+        response.APIError(w, r, apiErr)
+        return
+    }
+    
+    response.JSON(w, r, http.StatusOK, EchoResponse{Message: result})
+}
+
+// Echo is a standalone function for backward compatibility
+func Echo(w http.ResponseWriter, r *http.Request) {
+    // Create a temporary handler for backward compatibility
+    // In a real application, you'd want to refactor this to use dependency injection
+    handler := &Handler{
+        services: &services.ServiceContainer{
+            Echo: services.NewEchoService(nil), // Use nil logger for tests
+        },
+    }
+    handler.Echo(w, r)
 }
