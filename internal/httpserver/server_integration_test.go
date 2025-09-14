@@ -6,6 +6,7 @@ import (
     "net/http/httptest"
     "testing"
     "log/slog"
+    "github.com/mikko-kohtala/go-api/internal/app"
     "github.com/mikko-kohtala/go-api/internal/config"
 )
 
@@ -31,7 +32,8 @@ func TestBodyLimit_EchoTooLarge(t *testing.T) {
     }
     // Avoid zero timeout by setting small positive duration
     if cfg.RequestTimeout <= 0 { cfg.RequestTimeout = 1 }
-    h := NewRouter(cfg, testLogger())
+    application := app.New(cfg, testLogger())
+    h := NewRouter(application)
 
     // Body > 10 bytes triggers MaxBytesReader error during JSON decode
     rr := httptest.NewRecorder()
@@ -57,7 +59,8 @@ func TestHealth_NotRateLimited(t *testing.T) {
         RateLimitPeriod:  "10s",
         CompressionLevel: 5,
     }
-    h := NewRouter(cfg, testLogger())
+    application := app.New(cfg, testLogger())
+    h := NewRouter(application)
     // Call /healthz twice quickly; should not be limited
     for i := 0; i < 2; i++ {
         rr := httptest.NewRecorder()
