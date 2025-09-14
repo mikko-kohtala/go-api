@@ -8,7 +8,7 @@ import (
     "time"
 
     "github.com/go-chi/chi/v5/middleware"
-    "github.com/mikko-kohtala/go-api/internal/logging"
+    pkglogger "github.com/mikko-kohtala/go-api/pkg/logger"
 )
 
 // LoggingMiddleware logs basic request/response details using slog JSON.
@@ -37,7 +37,7 @@ func LoggingMiddleware(logger *slog.Logger) func(next http.Handler) http.Handler
             }
 
             // store logger in context for handlers to use if desired
-            ctx := logging.IntoContext(r.Context(), reqLogger)
+            ctx := pkglogger.IntoContext(r.Context(), reqLogger)
             next.ServeHTTP(ww, r.WithContext(ctx))
             duration := time.Since(start)
 
@@ -52,13 +52,11 @@ func LoggingMiddleware(logger *slog.Logger) func(next http.Handler) http.Handler
             } else {
                 // Full logging for production/JSON logs
                 reqLogger.Info("request",
-                    slog.String("remote_ip", r.RemoteAddr),
                     slog.String("method", r.Method),
                     slog.String("path", r.URL.Path),
                     slog.Int("status", ww.Status()),
                     slog.Int("bytes", ww.BytesWritten()),
                     slog.String("duration", duration.String()),
-                    slog.String("user_agent", r.UserAgent()),
                 )
             }
         }

@@ -1,4 +1,4 @@
-package logging
+package logger
 
 import (
 	"context"
@@ -51,8 +51,13 @@ func (h *PrettyHandler) Handle(_ context.Context, r slog.Record) error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	// Time with milliseconds
-	timeStr := r.Time.Format("15:04:05.000")
+	// Time with milliseconds - simplified format
+	hour := r.Time.Hour()
+	timeStr := fmt.Sprintf("%d:%02d:%02d.%03d",
+		hour,
+		r.Time.Minute(),
+		r.Time.Second(),
+		r.Time.Nanosecond()/1e6)
 
 	// Level with color
 	var levelStr string
@@ -106,13 +111,13 @@ func (h *PrettyHandler) Handle(_ context.Context, r slog.Record) error {
 	// Build the log line
 	var logLine strings.Builder
 
-	// Time
+	// Time with gray color
 	logLine.WriteString(colorGray)
 	logLine.WriteString(timeStr)
 	logLine.WriteString(colorReset)
 	logLine.WriteString(" ")
 
-	// Level
+	// Level with color
 	logLine.WriteString(levelColor)
 	logLine.WriteString(levelStr)
 	logLine.WriteString(colorReset)
@@ -128,23 +133,21 @@ func (h *PrettyHandler) Handle(_ context.Context, r slog.Record) error {
 		}
 	}
 
-	// Add arrow for HTTP requests based on direction
+	// Handle HTTP request formatting with arrows
 	if isHTTPLog && direction != "" {
 		if direction == "incoming" {
-			logLine.WriteString(colorCyan)
-			logLine.WriteString("→ ")
-			logLine.WriteString(colorReset)
+			logLine.WriteString("▶ ")
+			logLine.WriteString(r.Message)
 		} else if direction == "outgoing" {
-			logLine.WriteString(colorGreen)
-			logLine.WriteString("← ")
-			logLine.WriteString(colorReset)
+			logLine.WriteString("◀ ")
+			logLine.WriteString(r.Message)
 		}
+	} else {
+		// Regular message
+		logLine.WriteString(r.Message)
 	}
 
-	// Message
-	logLine.WriteString(r.Message)
-
-	// Add request ID if present
+	// Add request ID if present (with gray color)
 	if requestID != "" {
 		logLine.WriteString(" ")
 		logLine.WriteString(colorGray)

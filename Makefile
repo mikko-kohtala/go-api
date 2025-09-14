@@ -3,8 +3,8 @@ PORT?=8080
 
 .PHONY: run build tidy test swag docs
 
-run: ## Run the API locally
-	go run ./cmd/api
+run: ## Run the API locally with pretty logs
+	PRETTY_LOGS=true go run ./cmd/api
 
 build: ## Build the API binary
 	go build -o bin/$(APP_NAME) ./cmd/api

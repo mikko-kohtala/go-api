@@ -15,11 +15,11 @@ import (
 
     "github.com/mikko-kohtala/go-api/internal/config"
     "github.com/mikko-kohtala/go-api/internal/handlers"
-    "github.com/mikko-kohtala/go-api/internal/logging"
+    pkglogger "github.com/mikko-kohtala/go-api/pkg/logger"
 )
 
 // NewRouter assembles the chi router with middleware and routes.
-func NewRouter(cfg *config.Config, logger *slog.Logger) http.Handler {
+func NewRouter(cfg *config.Config, appLogger *slog.Logger) http.Handler {
     r := chi.NewRouter()
 
     // Core middleware (place timeout early to bound all work)
@@ -29,7 +29,7 @@ func NewRouter(cfg *config.Config, logger *slog.Logger) http.Handler {
     r.Use(middleware.RealIP)
     // Compression level is configurable
     r.Use(middleware.Compress(cfg.CompressionLevel))
-    r.Use(LoggingMiddleware(logger))
+    r.Use(LoggingMiddleware(appLogger))
     r.Use(middleware.Recoverer)
 
     // CORS
@@ -45,7 +45,7 @@ func NewRouter(cfg *config.Config, logger *slog.Logger) http.Handler {
     if cfg.Env == "production" || cfg.Env == "prod" {
         for _, o := range cfg.CORSAllowedOrigins {
             if o == "*" {
-                logger.Warn("CORS allows all origins in production; consider restricting AllowedOrigins")
+                appLogger.Warn("CORS allows all origins in production; consider restricting AllowedOrigins")
                 break
             }
         }
@@ -56,7 +56,7 @@ func NewRouter(cfg *config.Config, logger *slog.Logger) http.Handler {
     if cfg.RateLimitEnabled {
         period, err := time.ParseDuration(cfg.RateLimitPeriod)
         if err != nil || period <= 0 {
-            logger.Error("invalid rate limit period; disabling rate limit",
+            appLogger.Error("invalid rate limit period; disabling rate limit",
                 slog.String("period", cfg.RateLimitPeriod),
                 slog.Any("error", err))
         } else {
@@ -105,7 +105,7 @@ func NewRouter(cfg *config.Config, logger *slog.Logger) http.Handler {
     // Root route
     r.Get("/", func(w http.ResponseWriter, r *http.Request) {
         // Get logger from context for testing
-        if l := logging.FromContext(r.Context()); l != nil {
+        if l := pkglogger.FromContext(r.Context()); l != nil {
             // Simple test log with request ID (already attached from middleware)
             l.Info("This is a test log from root handler")
         }
@@ -119,7 +119,7 @@ func NewRouter(cfg *config.Config, logger *slog.Logger) http.Handler {
 
         if _, err := w.Write([]byte(response)); err != nil {
             // Error level - something went wrong
-            if l := logging.FromContext(r.Context()); l != nil {
+            if l := pkglogger.FromContext(r.Context()); l != nil {
                 l.With(slog.String("component", "API")).Error("failed to write root response",
                     slog.String("error", err.Error()),
                     slog.Int("response_size", len(response)),

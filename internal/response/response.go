@@ -5,7 +5,7 @@ import (
     "log/slog"
     "net/http"
 
-    "github.com/mikko-kohtala/go-api/internal/logging"
+    "github.com/mikko-kohtala/go-api/pkg/logger"
 )
 
 // ErrorResponse is a consistent error envelope for API responses.
@@ -27,7 +27,7 @@ func JSON(w http.ResponseWriter, r *http.Request, status int, v any) {
     w.Header().Set("Content-Type", "application/json")
     w.WriteHeader(status)
     if err := json.NewEncoder(w).Encode(v); err != nil {
-        if l := logging.FromContext(r.Context()); l != nil {
+        if l := logger.FromContext(r.Context()); l != nil {
             l.Error("encode json response failed", slog.String("error", err.Error()))
         }
     }
