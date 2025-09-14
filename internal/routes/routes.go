@@ -61,7 +61,23 @@ func (rt *Routes) SetupAPIV1Routes(r chi.Router) {
 	})
 }
 
+// SetupRootRoute configures the root endpoint
+func (rt *Routes) SetupRootRoute(r chi.Router) {
+	r.Get("/", handlers.Root)
+}
+
 // SetupTestRoutes configures test/debug endpoints
-func (rt *Routes) SetupTestRoutes(r chi.Router, testLogHandler http.HandlerFunc) {
-	r.Get("/logs", testLogHandler)
+func (rt *Routes) SetupTestRoutes(r chi.Router) {
+	r.Get("/logs", handlers.TestLogs)
+}
+
+// SetupSwaggerRoutes configures Swagger documentation routes
+func (rt *Routes) SetupSwaggerRoutes(r chi.Router, swaggerHandler http.HandlerFunc) {
+	r.Get("/swagger/*", swaggerHandler)
+
+	// Alias the Swagger UI under /api-docs as well
+	r.Get("/api-docs", func(w http.ResponseWriter, req *http.Request) {
+		http.Redirect(w, req, "/api-docs/index.html", http.StatusTemporaryRedirect)
+	})
+	r.Get("/api-docs/*", swaggerHandler)
 }
