@@ -1,6 +1,7 @@
 package response
 
 import (
+	"context"
 	"encoding/json"
 	"log/slog"
 	"net/http"
@@ -33,12 +34,34 @@ func JSON(w http.ResponseWriter, r *http.Request, status int, v any) {
 	}
 }
 
+// ctxKey is a custom type for context keys (matching httpserver package)
+type ctxKey string
+
+const requestIDKey ctxKey = "request_id"
+
+// GetRequestID retrieves the request ID from context
+func GetRequestID(ctx context.Context) string {
+	if v := ctx.Value(requestIDKey); v != nil {
+		if s, ok := v.(string); ok {
+			return s
+		}
+	}
+	return ""
+}
+
 // Error writes a standardized error response.
 func Error(w http.ResponseWriter, r *http.Request, status int, code, message string, fields map[string]string) {
-	rid := r.Header.Get("X-Request-ID")
+	// Get request ID from context (includes server-generated IDs)
+	rid := GetRequestID(r.Context())
+
+	// If no ID in context, fall back to headers (shouldn't happen with middleware)
 	if rid == "" {
-		rid = r.Header.Get("X-Correlation-ID")
+		rid = r.Header.Get("X-Request-ID")
+		if rid == "" {
+			rid = r.Header.Get("X-Correlation-ID")
+		}
 	}
+
 	JSON(w, r, status, ErrorResponse{
 		Error:     code,
 		Message:   message,
