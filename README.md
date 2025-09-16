@@ -48,6 +48,7 @@ Endpoints
 - `GET /readyz` — readiness probe
 - `GET /api/v1/ping` — returns `{ "pong": "ok" }`
 - `POST /api/v1/echo` — `{ "message": "..." }` → echoes back
+- `GET /metrics` — Prometheus metrics (for scraping)
 - `GET /swagger/index.html` — docs UI
 - `GET /api-docs` — docs UI (alias for Swagger)
 

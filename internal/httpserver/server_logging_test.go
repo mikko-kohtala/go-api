@@ -49,7 +49,7 @@ func TestLogger_APIRequestResponse(t *testing.T) {
 	cfg := &config.Config{
 		Env:                "test",
 		Port:               8080,
-		RequestTimeout:     30,
+		RequestTimeout:     30 * time.Second,
 		BodyLimitBytes:     1048576,
 		CORSAllowedOrigins: []string{"*"},
 		CORSAllowedMethods: []string{"GET", "POST", "PUT", "DELETE"},

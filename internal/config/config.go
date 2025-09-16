@@ -10,7 +10,7 @@ import (
 // Config holds application configuration loaded from environment variables.
 type Config struct {
 	Env            string        `env:"APP_ENV" envDefault:"development"`
-	Port           int           `env:"PORT" envDefault:"3000"`
+	Port           int           `env:"PORT" envDefault:"8080"`
 	RequestTimeout time.Duration `env:"REQUEST_TIMEOUT" envDefault:"15s"`
 	BodyLimitBytes int64         `env:"BODY_LIMIT_BYTES" envDefault:"10485760"` // 10 MiB
 

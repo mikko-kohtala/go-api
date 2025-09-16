@@ -2,11 +2,14 @@ package httpserver
 
 import (
 	"bytes"
-	"github.com/mikko-kohtala/go-api/internal/config"
-	"log/slog"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
+
+	"github.com/mikko-kohtala/go-api/internal/config"
+	"log/slog"
 )
 
 // minimal logger for tests
@@ -20,7 +23,7 @@ func TestBodyLimit_EchoTooLarge(t *testing.T) {
 	cfg := &config.Config{
 		Env:                "test",
 		Port:               0,
-		RequestTimeout:     0, // not used in test server
+		RequestTimeout:     time.Second,
 		BodyLimitBytes:     10,
 		CORSAllowedOrigins: []string{"*"},
 		CORSAllowedMethods: []string{"GET", "POST"},
@@ -29,10 +32,6 @@ func TestBodyLimit_EchoTooLarge(t *testing.T) {
 		RateLimit:          1,
 		RateLimitPeriod:    "1m",
 		CompressionLevel:   5,
-	}
-	// Avoid zero timeout by setting small positive duration
-	if cfg.RequestTimeout <= 0 {
-		cfg.RequestTimeout = 1
 	}
 	h := NewRouter(cfg, testLogger())
 
@@ -50,7 +49,7 @@ func TestHealth_NotRateLimited(t *testing.T) {
 	cfg := &config.Config{
 		Env:                "test",
 		Port:               0,
-		RequestTimeout:     1,
+		RequestTimeout:     time.Second,
 		BodyLimitBytes:     1048576,
 		CORSAllowedOrigins: []string{"*"},
 		CORSAllowedMethods: []string{"GET"},
@@ -69,5 +68,67 @@ func TestHealth_NotRateLimited(t *testing.T) {
 		if rr.Code != http.StatusOK {
 			t.Fatalf("expected 200, got %d on iteration %d", rr.Code, i)
 		}
+	}
+}
+
+func TestTestRoutesDisabledInProduction(t *testing.T) {
+	cfg := &config.Config{
+		Env:                "production",
+		Port:               0,
+		RequestTimeout:     time.Second,
+		BodyLimitBytes:     1048576,
+		CORSAllowedOrigins: []string{"*"},
+		CORSAllowedMethods: []string{"GET"},
+		CORSAllowedHeaders: []string{"*"},
+		RateLimitEnabled:   false,
+		RateLimit:          1,
+		RateLimitPeriod:    "1m",
+		CompressionLevel:   5,
+	}
+
+	h := NewRouter(cfg, testLogger())
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/test/logs", nil)
+	h.ServeHTTP(rr, req)
+	if rr.Code != http.StatusNotFound {
+		t.Fatalf("expected 404 when test routes disabled, got %d", rr.Code)
+	}
+}
+
+func TestMetricsEndpointAvailable(t *testing.T) {
+	cfg := &config.Config{
+		Env:                "test",
+		Port:               0,
+		RequestTimeout:     time.Second,
+		BodyLimitBytes:     1048576,
+		CORSAllowedOrigins: []string{"*"},
+		CORSAllowedMethods: []string{"GET"},
+		CORSAllowedHeaders: []string{"*"},
+		RateLimitEnabled:   false,
+		RateLimit:          1,
+		RateLimitPeriod:    "1m",
+		CompressionLevel:   5,
+	}
+
+	h := NewRouter(cfg, testLogger())
+	server := httptest.NewServer(h)
+	defer server.Close()
+
+	resp, err := http.Get(server.URL + "/metrics")
+	if err != nil {
+		t.Fatalf("GET /metrics failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 from /metrics, got %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("failed reading metrics body: %v", err)
+	}
+	if !bytes.Contains(body, []byte("api_requests_total")) {
+		t.Fatalf("expected metrics output to contain api_requests_total, got %s", string(body))
 	}
 }

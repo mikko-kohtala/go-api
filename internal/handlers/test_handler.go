@@ -160,3 +160,41 @@ func TestLogs(w http.ResponseWriter, r *http.Request) {
 
 	response.JSON(w, r, http.StatusOK, resp)
 }
+
+// TestSleep godoc
+// @Summary      Simulate a long-running request for testing shutdown behavior
+// @Description  Sleeps for the requested duration before returning.
+// @Tags         test
+// @Produce      json
+// @Param        duration_ms query int false "Sleep duration in milliseconds"
+// @Param        duration    query string false "Sleep duration (Go duration format, e.g. 250ms)"
+// @Success      200 {object} map[string]interface{}
+// @Router       /test/sleep [get]
+func TestSleep(w http.ResponseWriter, r *http.Request) {
+	l := pkglogger.FromContext(r.Context())
+	query := r.URL.Query()
+
+	var sleepFor time.Duration
+	if ms := query.Get("duration_ms"); ms != "" {
+		var parsed int
+		if _, err := fmt.Sscanf(ms, "%d", &parsed); err == nil && parsed >= 0 {
+			sleepFor = time.Duration(parsed) * time.Millisecond
+		}
+	} else if duration := query.Get("duration"); duration != "" {
+		if parsed, err := time.ParseDuration(duration); err == nil && parsed >= 0 {
+			sleepFor = parsed
+		}
+	}
+
+	if sleepFor > 0 {
+		time.Sleep(sleepFor)
+	}
+
+	if l != nil {
+		l.Info("Test sleep completed", slog.Duration("slept", sleepFor))
+	}
+
+	response.JSON(w, r, http.StatusOK, map[string]interface{}{
+		"slept_ms": sleepFor.Milliseconds(),
+	})
+}

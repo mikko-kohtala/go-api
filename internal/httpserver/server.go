@@ -13,6 +13,7 @@ import (
 	httpSwagger "github.com/swaggo/http-swagger/v2"
 
 	"github.com/mikko-kohtala/go-api/internal/config"
+	"github.com/mikko-kohtala/go-api/internal/metrics"
 	"github.com/mikko-kohtala/go-api/internal/routes"
 	"github.com/mikko-kohtala/go-api/internal/services"
 )
@@ -24,8 +25,11 @@ func NewRouter(cfg *config.Config, appLogger *slog.Logger) http.Handler {
 	userService := services.NewUserService()
 	statsService := services.NewStatsService()
 
+	// Determine whether to include debugging/test routes
+	includeTestRoutes := cfg.Env != "production" && cfg.Env != "prod"
+
 	// Initialize routes with services
-	routesHandler := routes.NewRoutes(appLogger, userService, statsService)
+	routesHandler := routes.NewRoutesWithTests(appLogger, userService, statsService, includeTestRoutes)
 
 	r := chi.NewRouter()
 
@@ -51,6 +55,7 @@ func setupMiddleware(r chi.Router, cfg *config.Config, appLogger *slog.Logger) {
 	r.Use(BodyLimit(cfg.BodyLimitBytes))
 	r.Use(RequestID)
 	r.Use(middleware.RealIP)
+	r.Use(metrics.Middleware)
 	r.Use(middleware.Compress(cfg.CompressionLevel))
 	r.Use(LoggingMiddleware(appLogger))
 	r.Use(middleware.Recoverer)
@@ -106,10 +111,15 @@ func setupRoutes(r chi.Router, routesHandler *routes.Routes, apiRate func(http.H
 		routesHandler.SetupAPIV1Routes(r)
 	})
 
-	// Test routes
-	r.Route("/test", func(r chi.Router) {
-		routesHandler.SetupTestRoutes(r)
-	})
+	// Test routes (development only)
+	if routesHandler.IncludeTestRoutes() {
+		r.Route("/test", func(r chi.Router) {
+			routesHandler.SetupTestRoutes(r)
+		})
+	}
+
+	// Metrics endpoint (no rate limiting)
+	r.Handle("/metrics", metrics.Handler())
 
 	// Root route
 	routesHandler.SetupRootRoute(r)
