@@ -124,3 +124,26 @@ func IntoContext(ctx context.Context, logger *slog.Logger) context.Context {
 type ctxKey struct{}
 
 var contextKey = ctxKey{}
+
+type requestIDKey struct{}
+
+var reqIDKey = requestIDKey{}
+
+// WithRequestID stores a request ID in the context for downstream consumers.
+func WithRequestID(ctx context.Context, requestID string) context.Context {
+	if requestID == "" {
+		return ctx
+	}
+	return context.WithValue(ctx, reqIDKey, requestID)
+}
+
+// RequestIDFromContext extracts the request ID previously stored with WithRequestID.
+func RequestIDFromContext(ctx context.Context) string {
+	if ctx == nil {
+		return ""
+	}
+	if v, ok := ctx.Value(reqIDKey).(string); ok {
+		return v
+	}
+	return ""
+}

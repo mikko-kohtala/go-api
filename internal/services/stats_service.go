@@ -47,11 +47,15 @@ func (s *statsService) GetSystemStats(ctx context.Context) (*SystemStats, error)
 func (s *statsService) GetAPIStats(ctx context.Context) (map[string]interface{}, error) {
 	// In a real application, this would track API metrics
 	// For now, return mock data
+	activeConnections := runtime.NumGoroutine() - 2
+	if activeConnections < 0 {
+		activeConnections = 0
+	}
 	return map[string]interface{}{
 		"total_requests":     1234,
 		"requests_per_min":   42,
 		"average_latency_ms": 15,
 		"error_rate":         0.01,
-		"active_connections": runtime.NumGoroutine() - 2,
+		"active_connections": activeConnections,
 	}, nil
 }

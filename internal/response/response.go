@@ -24,6 +24,12 @@ type ErrorResponse struct {
 
 // JSON writes a JSON response with a status code and logs encoding failures.
 func JSON(w http.ResponseWriter, r *http.Request, status int, v any) {
+	if err := r.Context().Err(); err != nil {
+		if l := logger.FromContext(r.Context()); l != nil {
+			l.Debug("skip json response: context done", slog.String("reason", err.Error()))
+		}
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	if err := json.NewEncoder(w).Encode(v); err != nil {
@@ -38,6 +44,9 @@ func Error(w http.ResponseWriter, r *http.Request, status int, code, message str
 	rid := r.Header.Get("X-Request-ID")
 	if rid == "" {
 		rid = r.Header.Get("X-Correlation-ID")
+	}
+	if rid == "" {
+		rid = logger.RequestIDFromContext(r.Context())
 	}
 	JSON(w, r, status, ErrorResponse{
 		Error:     code,

@@ -15,6 +15,7 @@ type Routes struct {
 	statsService services.StatsService
 	userHandler  *handlers.UserHandler
 	statsHandler *handlers.StatsHandler
+	includeTest  bool
 }
 
 func NewRoutes(
@@ -22,13 +23,28 @@ func NewRoutes(
 	userService services.UserService,
 	statsService services.StatsService,
 ) *Routes {
+	return NewRoutesWithTests(logger, userService, statsService, true)
+}
+
+func NewRoutesWithTests(
+	logger *slog.Logger,
+	userService services.UserService,
+	statsService services.StatsService,
+	includeTest bool,
+) *Routes {
 	return &Routes{
 		logger:       logger,
 		userService:  userService,
 		statsService: statsService,
 		userHandler:  handlers.NewUserHandler(userService, logger),
 		statsHandler: handlers.NewStatsHandler(statsService, logger),
+		includeTest:  includeTest,
 	}
+}
+
+// IncludeTestRoutes reports whether debug/test routes should be registered.
+func (rt *Routes) IncludeTestRoutes() bool {
+	return rt.includeTest
 }
 
 // SetupHealthRoutes configures health check endpoints
@@ -69,6 +85,7 @@ func (rt *Routes) SetupRootRoute(r chi.Router) {
 // SetupTestRoutes configures test/debug endpoints
 func (rt *Routes) SetupTestRoutes(r chi.Router) {
 	r.Get("/logs", handlers.TestLogs)
+	r.Get("/sleep", handlers.TestSleep)
 }
 
 // SetupSwaggerRoutes configures Swagger documentation routes

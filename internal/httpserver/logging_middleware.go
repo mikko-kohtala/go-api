@@ -36,8 +36,12 @@ func LoggingMiddleware(logger *slog.Logger) func(next http.Handler) http.Handler
 				incomingLogger.Info(fmt.Sprintf("%s %s", r.Method, r.URL.Path))
 			}
 
-			// store logger in context for handlers to use if desired
-			ctx := pkglogger.IntoContext(r.Context(), reqLogger)
+			// store logger and request id in context for handlers to use if desired
+			ctx := r.Context()
+			if rid != "" {
+				ctx = pkglogger.WithRequestID(ctx, rid)
+			}
+			ctx = pkglogger.IntoContext(ctx, reqLogger)
 			next.ServeHTTP(ww, r.WithContext(ctx))
 			duration := time.Since(start)
 
