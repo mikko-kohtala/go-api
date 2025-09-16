@@ -9,8 +9,8 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 	"github.com/go-chi/httprate"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	docs "github.com/mikko-kohtala/go-api/internal/docs"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	httpSwagger "github.com/swaggo/http-swagger/v2"
 
 	"github.com/mikko-kohtala/go-api/internal/config"

@@ -64,13 +64,13 @@ func TestLoadConfig(t *testing.T) {
 		{
 			name: "production environment",
 			envVars: map[string]string{
-				"APP_ENV":               "production",
-				"PORT":                  "8080",
-				"REQUEST_TIMEOUT":       "30s",
-				"CORS_ALLOWED_ORIGINS":  "https://example.com,https://app.example.com",
-				"CORS_STRICT":           "true",
-				"RATE_LIMIT":            "200",
-				"COMPRESSION_LEVEL":     "9",
+				"APP_ENV":              "production",
+				"PORT":                 "8080",
+				"REQUEST_TIMEOUT":      "30s",
+				"CORS_ALLOWED_ORIGINS": "https://example.com,https://app.example.com",
+				"CORS_STRICT":          "true",
+				"RATE_LIMIT":           "200",
+				"COMPRESSION_LEVEL":    "9",
 			},
 			wantErr: false,
 			verify: func(cfg *Config, t *testing.T) {

@@ -105,10 +105,10 @@ func TestCreateUser(t *testing.T) {
 	ctx := context.Background()
 
 	tests := []struct {
-		name    string
-		email   string
+		name     string
+		email    string
 		userName string
-		wantErr error
+		wantErr  error
 	}{
 		{
 			name:     "valid user",

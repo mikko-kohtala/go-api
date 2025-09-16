@@ -14,7 +14,7 @@ PRETTY_LOGS=true go run ./cmd/api
 
 ### Pretty Format (Development)
 ```
-11:16:32.110 INFO Started server {port:3000}
+11:16:32.110 INFO Started server {port:8080}
 11:16:41.142 INFO ▶ GET / {id:"test123"}
 11:16:41.142 INFO ◀ GET / {id:"test123", status:200, latency:99.71µs}
 ```
@@ -33,16 +33,16 @@ Generate example logs at `/test/logs`:
 
 ```bash
 # All log types (default)
-curl "http://localhost:3000/test/logs"
+curl "http://localhost:8080/test/logs"
 
 # Only errors
-curl "http://localhost:3000/test/logs?debug=false&info=false&warn=false"
+curl "http://localhost:8080/test/logs?debug=false&info=false&warn=false"
 
 # Multiple iterations
-curl "http://localhost:3000/test/logs?count=3"
+curl "http://localhost:8080/test/logs?count=3"
 
 # Skip grouped examples
-curl "http://localhost:3000/test/logs?groups=false"
+curl "http://localhost:8080/test/logs?groups=false"
 ```
 
 ### Parameters
@@ -71,7 +71,7 @@ log := logger.New(
 )
 
 // Simple logging
-log.Info("Server started", slog.Int("port", 3000))
+log.Info("Server started", slog.Int("port", 8080))
 
 // From request context (includes request_id)
 l := logger.FromContext(r.Context())

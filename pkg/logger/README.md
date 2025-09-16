@@ -117,7 +117,7 @@ When using pretty format, logs are displayed with:
 
 Example output:
 ```
-10:23:41.773 INFO Started server {port:3000}
+10:23:41.773 INFO Started server {port:8080}
 10:23:41.773 INFO → GET / {id:"56ada389..."}
 10:23:41.773 INFO Processing request {id:"56ada389..."}
 10:23:41.774 INFO ← GET / {id:"56ada389...", status:200, latency:121.54µs}

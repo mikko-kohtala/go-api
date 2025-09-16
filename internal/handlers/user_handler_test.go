@@ -16,11 +16,11 @@ import (
 
 // Mock user service for testing
 type mockUserService struct {
-	getUserByIDFunc  func(ctx context.Context, id string) (*services.User, error)
-	getAllUsersFunc  func(ctx context.Context) ([]services.User, error)
-	createUserFunc   func(ctx context.Context, email, name string) (*services.User, error)
-	updateUserFunc   func(ctx context.Context, id string, updates map[string]interface{}) (*services.User, error)
-	deleteUserFunc   func(ctx context.Context, id string) error
+	getUserByIDFunc func(ctx context.Context, id string) (*services.User, error)
+	getAllUsersFunc func(ctx context.Context) ([]services.User, error)
+	createUserFunc  func(ctx context.Context, email, name string) (*services.User, error)
+	updateUserFunc  func(ctx context.Context, id string, updates map[string]interface{}) (*services.User, error)
+	deleteUserFunc  func(ctx context.Context, id string) error
 }
 
 func (m *mockUserService) GetUserByID(ctx context.Context, id string) (*services.User, error) {
@@ -255,8 +255,8 @@ func TestCreateUser(t *testing.T) {
 			expectedStatus: http.StatusConflict,
 		},
 		{
-			name: "invalid json",
-			body: "invalid json",
+			name:           "invalid json",
+			body:           "invalid json",
 			mockService:    &mockUserService{},
 			expectedStatus: http.StatusBadRequest,
 		},
@@ -360,9 +360,9 @@ func TestUpdateUser(t *testing.T) {
 			expectedStatus: http.StatusBadRequest,
 		},
 		{
-			name:   "invalid json",
-			userID: "123",
-			body:   "invalid json",
+			name:           "invalid json",
+			userID:         "123",
+			body:           "invalid json",
 			mockService:    &mockUserService{},
 			expectedStatus: http.StatusBadRequest,
 		},
