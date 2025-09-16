@@ -9,6 +9,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 	"github.com/go-chi/httprate"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	docs "github.com/mikko-kohtala/go-api/internal/docs"
 	httpSwagger "github.com/swaggo/http-swagger/v2"
 
@@ -26,11 +27,12 @@ func NewRouter(cfg *config.Config, appLogger *slog.Logger) http.Handler {
 
 	// Initialize routes with services
 	routesHandler := routes.NewRoutes(appLogger, userService, statsService)
+	routesHandler.SetEnvironment(cfg.Env)
 
 	r := chi.NewRouter()
 
 	// Setup middleware
-	setupMiddleware(r, cfg, appLogger)
+	setupMiddleware(r, cfg, appLogger, statsService)
 
 	// Setup rate limiting
 	apiRate := setupRateLimiting(cfg, appLogger)
@@ -41,17 +43,22 @@ func NewRouter(cfg *config.Config, appLogger *slog.Logger) http.Handler {
 	// Setup Swagger documentation
 	setupSwagger(r, routesHandler)
 
+	// Setup metrics endpoint
+	setupMetrics(r)
+
 	return r
 }
 
 // setupMiddleware configures all middleware for the router
-func setupMiddleware(r chi.Router, cfg *config.Config, appLogger *slog.Logger) {
-	// Core middleware (place timeout early to bound all work)
-	r.Use(middleware.Timeout(cfg.RequestTimeout))
+func setupMiddleware(r chi.Router, cfg *config.Config, appLogger *slog.Logger, statsService services.StatsService) {
+	// Core middleware - removed timeout to avoid double WriteHeader issue
+	// Timeout should be handled at server level instead
 	r.Use(BodyLimit(cfg.BodyLimitBytes))
 	r.Use(RequestID)
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Compress(cfg.CompressionLevel))
+	r.Use(ConnectionsMiddleware(statsService))
+	r.Use(MetricsMiddleware)
 	r.Use(LoggingMiddleware(appLogger))
 	r.Use(middleware.Recoverer)
 
@@ -132,4 +139,9 @@ func setupSwagger(r chi.Router, routesHandler *routes.Routes) {
 
 	// Setup Swagger routes
 	routesHandler.SetupSwaggerRoutes(r, swaggerHandler)
+}
+
+// setupMetrics configures Prometheus metrics endpoint
+func setupMetrics(r chi.Router) {
+	r.Handle("/metrics", promhttp.Handler())
 }

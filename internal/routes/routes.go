@@ -15,6 +15,7 @@ type Routes struct {
 	statsService services.StatsService
 	userHandler  *handlers.UserHandler
 	statsHandler *handlers.StatsHandler
+	env          string
 }
 
 func NewRoutes(
@@ -28,7 +29,13 @@ func NewRoutes(
 		statsService: statsService,
 		userHandler:  handlers.NewUserHandler(userService, logger),
 		statsHandler: handlers.NewStatsHandler(statsService, logger),
+		env:          "", // Will be set by SetEnvironment
 	}
+}
+
+// SetEnvironment sets the environment for conditional route registration
+func (rt *Routes) SetEnvironment(env string) {
+	rt.env = env
 }
 
 // SetupHealthRoutes configures health check endpoints
@@ -68,6 +75,12 @@ func (rt *Routes) SetupRootRoute(r chi.Router) {
 
 // SetupTestRoutes configures test/debug endpoints
 func (rt *Routes) SetupTestRoutes(r chi.Router) {
+	// Only enable test routes in development/test environments
+	if rt.env == "production" || rt.env == "prod" {
+		rt.logger.Info("Test routes disabled in production environment")
+		return
+	}
+
 	r.Get("/logs", handlers.TestLogs)
 }
 
