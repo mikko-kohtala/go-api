@@ -45,5 +45,6 @@ func Echo(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, r, http.StatusBadRequest, "validation_error", "validation failed", errs)
 		return
 	}
-	response.JSON(w, r, http.StatusOK, EchoResponse{Message: req.Message})
+	resp := EchoResponse{Message: req.Message}
+	response.JSON(w, r, http.StatusOK, resp)
 }

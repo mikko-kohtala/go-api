@@ -369,16 +369,16 @@ func TestConcurrentAccess(t *testing.T) {
 				case 0:
 					// Create
 					email := fmt.Sprintf("concurrent%d_%d@example.com", id, j)
-					service.CreateUser(ctx, email, "Concurrent User")
+					_, _ = service.CreateUser(ctx, email, "Concurrent User")
 				case 1:
 					// Read all
-					service.GetAllUsers(ctx)
+					_, _ = service.GetAllUsers(ctx)
 				case 2:
 					// Read one
-					service.GetUserByID(ctx, "usr_001")
+					_, _ = service.GetUserByID(ctx, "usr_001")
 				case 3:
 					// Update
-					service.UpdateUser(ctx, "usr_001", map[string]interface{}{
+					_, _ = service.UpdateUser(ctx, "usr_001", map[string]interface{}{
 						"name": fmt.Sprintf("Updated %d", time.Now().UnixNano()),
 					})
 				}
