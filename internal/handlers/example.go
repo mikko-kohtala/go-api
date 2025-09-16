@@ -45,6 +45,6 @@ func Echo(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, r, http.StatusBadRequest, "validation_error", "validation failed", errs)
 		return
 	}
-	resp := EchoResponse{Message: req.Message}
+	resp := EchoResponse{Message: req.Message} //nolint:gosimple // Different types, cannot convert
 	response.JSON(w, r, http.StatusOK, resp)
 }
